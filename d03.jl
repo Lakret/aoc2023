@@ -37,21 +37,20 @@ function part_numbers(inp)
 
   state = State()
   for digit_position in digit_positions
-    if isempty(state.digits) || (digit_position == last(state.positions) + CartesianIndex(0, 1))
-      add_digit!(state, inp[digit_position], digit_position)
-    else
+    # if we have digits and the current digit doesn't directly follow them, we can push the number and clear the state
+    if !isempty(state.digits) && (digit_position != last(state.positions) + CartesianIndex(0, 1))
       push_if_part_number!(part_numbers, state, symbol_positions)
-
       state = State()
-      add_digit!(state, inp[digit_position], digit_position)
     end
+
+    add_digit!(state, inp[digit_position], digit_position)
   end
 
   if !isempty(state.digits)
     push_if_part_number!(part_numbers, state, symbol_positions)
   end
 
-  part_numbers |> sum
+  part_numbers
 end
 
 p1(inp) = part_numbers(inp) |> sum

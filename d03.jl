@@ -7,45 +7,54 @@ neighbour_deltas = [
   CartesianIndex(-1, -1), CartesianIndex(-1, 1), CartesianIndex(1, -1), CartesianIndex(1, 1)
 ]
 
-function all_part_numbers(inp)
-  part_numbers = []
-  for i = 1:size(inp)[1]
-    n = Vector{Char}()
-    adjacent_to_symbol = false
+issymbol(ch) = !(isdigit(ch) || ch == '.')
 
-    for j = 1:size(inp)[2]
-      if isdigit(inp[i, j])
-        push!(n, inp[i, j])
+mutable struct State
+  digits::Vector{Char}
+  positions::Vector{CartesianIndex{2}}
 
-        idx = CartesianIndex(i, j)
-        for delta = neighbour_deltas
-          neighbour_idx = idx + delta
-          if neighbour_idx[1] > 0 && neighbour_idx[2] > 0 &&
-             neighbour_idx[1] < size(inp)[1] && neighbour_idx[2] < size(inp)[2]
-            neighbour = inp[idx+delta]
-            if !isdigit(neighbour) && neighbour != '.'
-              adjacent_to_symbol = true
-            end
-          end
-        end
-      else
-        if !isempty(n) && adjacent_to_symbol
-          push!(part_numbers, parse(Int64, String(n)))
-        end
-
-        n = Vector{Char}()
-        adjacent_to_symbol = false
-      end
-    end
-
-    if !isempty(n) && adjacent_to_symbol
-      push!(part_numbers, parse(Int64, String(n)))
-    end
-  end
-  part_numbers
+  State() = new([], [])
 end
 
-p1(inp) = all_part_numbers(inp) |> sum
+function add_digit!(s::State, digit::Char, pos::CartesianIndex{2})
+  push!(s.digits, digit)
+  push!(s.positions, pos)
+end
+
+function push_if_part_number!(part_numbers::Vector{Int64}, state::State, symbol_positions::Set{CartesianIndex{2}})
+  candidate = @pipe String(state.digits) |> parse(Int64, _)
+  all_neighbour_positions = map(pos -> [pos] .+ neighbour_deltas, state.positions) |> Iterators.flatten
+  if !(intersect(symbol_positions, all_neighbour_positions) |> isempty)
+    push!(part_numbers, candidate)
+  end
+end
+
+function part_numbers(inp)
+  part_numbers = Vector{Int64}()
+  symbol_positions = findall(issymbol, inp) |> Set
+  # sort them in a row-by-row order, so we can rely on digits of one number following each other
+  digit_positions = @pipe findall(isdigit, inp) |> sort(_, by=x -> (x[1], x[2]))
+
+  state = State()
+  for digit_position in digit_positions
+    if isempty(state.digits) || (digit_position == last(state.positions) + CartesianIndex(0, 1))
+      add_digit!(state, inp[digit_position], digit_position)
+    else
+      push_if_part_number!(part_numbers, state, symbol_positions)
+
+      state = State()
+      add_digit!(state, inp[digit_position], digit_position)
+    end
+  end
+
+  if !isempty(state.digits)
+    push_if_part_number!(part_numbers, state, symbol_positions)
+  end
+
+  part_numbers |> sum
+end
+
+p1(inp) = part_numbers(inp) |> sum
 
 test_inp = """467..114..
   ...*......
@@ -59,7 +68,6 @@ test_inp = """467..114..
   .664.598..
   """
 test_inp = parse_input(test_inp)
-
 input = readchomp("inputs/d03") |> parse_input
 
 @assert p1(test_inp) == 4361

@@ -1,12 +1,6 @@
 using Pipe
 
 parse_input(inp) = @pipe split(inp) .|> collect |> mapreduce(permutedims, vcat, _)
-
-neighbour_deltas = [
-  CartesianIndex(-1, 0), CartesianIndex(1, 0), CartesianIndex(0, -1), CartesianIndex(0, 1),
-  CartesianIndex(-1, -1), CartesianIndex(-1, 1), CartesianIndex(1, -1), CartesianIndex(1, 1)
-]
-
 issymbol(ch) = !(isdigit(ch) || ch == '.')
 
 mutable struct State
@@ -20,6 +14,11 @@ function add_digit!(s::State, digit::Char, pos::CartesianIndex{2})
   push!(s.digits, digit)
   push!(s.positions, pos)
 end
+
+neighbour_deltas = [
+  CartesianIndex(-1, 0), CartesianIndex(1, 0), CartesianIndex(0, -1), CartesianIndex(0, 1),
+  CartesianIndex(-1, -1), CartesianIndex(-1, 1), CartesianIndex(1, -1), CartesianIndex(1, 1)
+]
 
 function push_if_part_number!(
   part_numbers::Vector{Tuple{Int64,Set{CartesianIndex}}},

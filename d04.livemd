@@ -65,12 +65,7 @@ defmodule D04 do
           Map.put(memo, card_id, 0)
 
         {card_id, wins_card_ids}, memo ->
-          copies_to_win =
-            Enum.map(wins_card_ids, fn copy_card_id ->
-              Map.get(memo, copy_card_id)
-            end)
-            |> Enum.sum()
-
+          copies_to_win = Enum.map(wins_card_ids, &Map.get(memo, &1)) |> Enum.sum()
           Map.put(memo, card_id, copies_to_win + length(wins_card_ids))
       end
     )
@@ -127,7 +122,7 @@ ExUnit.run()
 Finished in 0.00 seconds (0.00s async, 0.00s sync)
 2 tests, 0 failures
 
-Randomized with seed 667293
+Randomized with seed 728407
 ```
 
 <!-- livebook:{"output":true} -->

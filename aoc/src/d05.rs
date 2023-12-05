@@ -98,6 +98,7 @@ fn parse_range_maps<'a, 'b>(
             }
         }
     }
+    range_maps.sort_by_key(|range_map| range_map.destination_range_start);
 
     maps.insert(source, range_maps);
 }
@@ -198,8 +199,21 @@ mod tests {
         assert_eq!(seed_to_location(&test_input, 55), 86);
         assert_eq!(seed_to_location(&test_input, 13), 35);
         assert_eq!(p1(&test_input), 35);
+        dbg!(&test_input);
+
+        // let test_distribution = (1..100)
+        //     .map(|seed| seed_to_location(&test_input, seed))
+        //     .collect::<Vec<_>>();
+        // dbg!(test_distribution);
+
+        // solution idea:
+        // - when we sort the ranges for each range map vector, we can see that they are continuous
+        // - start from the end (Humidity -> Location) map, select the "destination" (Location) range,
+        // based on that determine the best "source" range (Humidity), repeat until we'll get the seeds ranges
+        // - intersect seed intervals to find the lowest seed number that we can pick, and run the forward computation
 
         let input = parse_input(&fs::read_to_string("../inputs/d05").unwrap());
         assert_eq!(p1(&input), 173706076);
+        dbg!(&input);
     }
 }

@@ -56,7 +56,7 @@ pub fn parse_input(input: &str) -> Input {
     Input { seeds, maps }
 }
 
-pub fn parse_range_maps<'a, 'b>(
+fn parse_range_maps<'a, 'b>(
     lines: &'b mut impl Iterator<Item = &'a str>,
     maps: &'b mut HashMap<Category, Vec<RangeMap>>,
     expected_header: &str,
@@ -96,6 +96,10 @@ pub fn parse_range_maps<'a, 'b>(
     maps.insert(source, range_maps);
 }
 
+pub fn p1(input: &Input) -> u64 {
+    input.seeds.iter().map(|seed| seed_to_location(input, *seed)).min().unwrap()
+}
+
 fn seed_to_location(input: &Input, seed: u64) -> u64 {
     let mut curr_category = Seed;
     let mut curr_id = seed;
@@ -130,8 +134,16 @@ fn seed_to_location(input: &Input, seed: u64) -> u64 {
     }
 }
 
-pub fn p1(input: &Input) -> u64 {
-    input.seeds.iter().map(|seed| seed_to_location(input, *seed)).min().unwrap()
+pub fn p2(input: &Input) -> u64 {
+    let mut ranges = input.seeds.chunks(2).map(|chunk| chunk[0]..=(chunk[0] + chunk[1] - 1)).collect::<Vec<_>>();
+
+    for source_category in [Seed, Soil, Fertilizer, Water, Light, Temperature, Humidity] {
+        let maps = input.maps.get(&source_category).unwrap();
+        let new_ranges = split_ranges_based_on_map_ranges(ranges, maps.iter().map(|m| m.to_source_ids_range()));
+        ranges = new_ranges.into_iter().map(|range| to_desintation_range(range, maps)).collect::<Vec<_>>();
+    }
+
+    ranges.into_iter().map(|r| *r.start()).min().unwrap()
 }
 
 fn intersect_with(this: &RangeInclusive<u64>, other: &RangeInclusive<u64>) -> Vec<RangeInclusive<u64>> {
@@ -162,18 +174,6 @@ fn apply_maps(value: u64, maps: &[RangeMap]) -> u64 {
         Some(m) => value + m.destination_range.start() - m.source_range.start(),
         None => value,
     }
-}
-
-pub fn p2(input: &Input) -> u64 {
-    let mut ranges = input.seeds.chunks(2).map(|chunk| chunk[0]..=(chunk[0] + chunk[1] - 1)).collect::<Vec<_>>();
-
-    for source_category in [Seed, Soil, Fertilizer, Water, Light, Temperature, Humidity] {
-        let maps = input.maps.get(&source_category).unwrap();
-        let new_ranges = split_ranges_based_on_map_ranges(ranges, maps.iter().map(|m| m.to_source_ids_range()));
-        ranges = new_ranges.into_iter().map(|range| to_desintation_range(range, maps)).collect::<Vec<_>>();
-    }
-
-    ranges.into_iter().map(|r| *r.start()).min().unwrap()
 }
 
 // split the ranges in such a way that each new range will be mapped to the destination via the same map

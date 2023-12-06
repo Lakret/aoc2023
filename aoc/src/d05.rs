@@ -16,18 +16,16 @@ pub enum Category {
     Location,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct RangeMap {
     destination: Category,
-    source_range_start: u64,
-    source_range_end: u64,
-    destination_range_start: u64,
-    destination_range_end: u64,
+    source_range: RangeInclusive<u64>,
+    destination_range: RangeInclusive<u64>,
 }
 
 impl RangeMap {
     fn to_source_ids_range(&self) -> RangeInclusive<u64> {
-        self.source_range_start..=self.source_range_end
+        *self.source_range.start()..=*self.source_range.end()
     }
 }
 
@@ -37,7 +35,7 @@ pub struct Input {
     maps: HashMap<Category, Vec<RangeMap>>,
 }
 
-fn parse_input(input: &str) -> Input {
+pub fn parse_input(input: &str) -> Input {
     let mut lines = input.split("\n");
     let seeds = lines.next().unwrap();
     let seeds = seeds.strip_prefix("seeds: ").unwrap().split_ascii_whitespace().map(|x| x.parse().unwrap()).collect();
@@ -58,7 +56,7 @@ fn parse_input(input: &str) -> Input {
     Input { seeds, maps }
 }
 
-fn parse_range_maps<'a, 'b>(
+pub fn parse_range_maps<'a, 'b>(
     lines: &'b mut impl Iterator<Item = &'a str>,
     maps: &'b mut HashMap<Category, Vec<RangeMap>>,
     expected_header: &str,
@@ -81,10 +79,8 @@ fn parse_range_maps<'a, 'b>(
                     &[destination_range_start, source_range_start, length] => {
                         range_maps.push(RangeMap {
                             destination,
-                            source_range_start,
-                            destination_range_start,
-                            source_range_end: source_range_start + length - 1,
-                            destination_range_end: destination_range_start + length - 1,
+                            source_range: source_range_start..=(source_range_start + length - 1),
+                            destination_range: destination_range_start..=(destination_range_start + length - 1),
                         });
                     }
                     x => {
@@ -94,7 +90,8 @@ fn parse_range_maps<'a, 'b>(
             }
         }
     }
-    range_maps.sort_by_key(|range_map| range_map.source_range_start);
+    // for simplicity, ensure that we always sort maps by their source range starts
+    range_maps.sort_by_key(|range_map| *range_map.source_range.start());
 
     maps.insert(source, range_maps);
 }
@@ -112,8 +109,8 @@ fn seed_to_location(input: &Input, seed: u64) -> u64 {
         for range_map in range_maps.iter() {
             dest_category = Some(range_map.destination);
 
-            if curr_id >= range_map.source_range_start && curr_id <= range_map.source_range_end {
-                dest_id = Some((curr_id - range_map.source_range_start) + range_map.destination_range_start);
+            if curr_id >= *range_map.source_range.start() && curr_id <= *range_map.source_range.end() {
+                dest_id = Some((curr_id - range_map.source_range.start()) + range_map.destination_range.start());
                 break;
             }
         }
@@ -161,15 +158,14 @@ fn intersect_with(this: &RangeInclusive<u64>, other: &RangeInclusive<u64>) -> Ve
 }
 
 fn apply_maps(value: u64, maps: &[RangeMap]) -> u64 {
-    match maps.iter().find(|m| value >= m.source_range_start && value <= m.source_range_end) {
-        Some(m) => value + m.destination_range_start - m.source_range_start,
+    match maps.iter().find(|m| value >= *m.source_range.start() && value <= *m.source_range.end()) {
+        Some(m) => value + m.destination_range.start() - m.source_range.start(),
         None => value,
     }
 }
 
 pub fn p2(input: &Input) -> u64 {
     let mut ranges = input.seeds.chunks(2).map(|chunk| chunk[0]..=(chunk[0] + chunk[1] - 1)).collect::<Vec<_>>();
-    ranges.sort_by_key(|r| *r.start());
 
     for source_category in [Seed, Soil, Fertilizer, Water, Light, Temperature, Humidity] {
         let maps = input.maps.get(&source_category).unwrap();

@@ -1,4 +1,7 @@
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    ops::RangeInclusive,
+};
 use Category::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -23,11 +26,8 @@ pub struct RangeMap {
 }
 
 impl RangeMap {
-    fn to_source_ids_range(&self) -> IdsRange {
-        IdsRange {
-            start: self.source_range_start,
-            end: self.source_range_end,
-        }
+    fn to_source_ids_range(&self) -> RangeInclusive<u64> {
+        self.source_range_start..=self.source_range_end
     }
 }
 
@@ -40,12 +40,7 @@ pub struct Input {
 fn parse_input(input: &str) -> Input {
     let mut lines = input.split("\n");
     let seeds = lines.next().unwrap();
-    let seeds = seeds
-        .strip_prefix("seeds: ")
-        .unwrap()
-        .split_ascii_whitespace()
-        .map(|x| x.parse().unwrap())
-        .collect();
+    let seeds = seeds.strip_prefix("seeds: ").unwrap().split_ascii_whitespace().map(|x| x.parse().unwrap()).collect();
 
     let mut maps = HashMap::new();
     for (header, source, destination) in [
@@ -82,11 +77,7 @@ fn parse_range_maps<'a, 'b>(
             if line == "" {
                 break;
             } else {
-                match &line
-                    .split_ascii_whitespace()
-                    .map(|x| x.parse().unwrap())
-                    .collect::<Vec<_>>()[..]
-                {
+                match &line.split_ascii_whitespace().map(|x| x.parse().unwrap()).collect::<Vec<_>>()[..] {
                     &[destination_range_start, source_range_start, length] => {
                         range_maps.push(RangeMap {
                             destination,
@@ -122,9 +113,7 @@ fn seed_to_location(input: &Input, seed: u64) -> u64 {
             dest_category = Some(range_map.destination);
 
             if curr_id >= range_map.source_range_start && curr_id <= range_map.source_range_end {
-                dest_id = Some(
-                    (curr_id - range_map.source_range_start) + range_map.destination_range_start,
-                );
+                dest_id = Some((curr_id - range_map.source_range_start) + range_map.destination_range_start);
                 break;
             }
         }
@@ -140,161 +129,70 @@ fn seed_to_location(input: &Input, seed: u64) -> u64 {
     if dest_category == Some(Location) {
         dest_id.unwrap()
     } else {
-        panic!(
-            "couldn't arrive at location, got stuck at {:?} category",
-            dest_category
-        )
+        panic!("couldn't arrive at location, got stuck at {:?} category", dest_category)
     }
 }
 
 pub fn p1(input: &Input) -> u64 {
-    input
-        .seeds
-        .iter()
-        .map(|seed| seed_to_location(input, *seed))
-        .min()
-        .unwrap()
+    input.seeds.iter().map(|seed| seed_to_location(input, *seed)).min().unwrap()
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-struct IdsRange {
-    start: u64,
-    end: u64,
-}
-
-impl IdsRange {
-    fn intersect_with(self: IdsRange, other: IdsRange) -> Vec<IdsRange> {
-        // self is outside other => no split
-        let res = if (self.start < other.start && self.end < other.start)
-            || (self.start > other.end && self.end > other.end)
-        {
-            vec![self]
-        // self intersects other from the end and self's end is contained inside other
-        } else if self.start < other.start && self.end <= other.end {
-            vec![
-                IdsRange {
-                    start: self.start,
-                    end: other.start - 1,
-                },
-                IdsRange {
-                    start: other.start,
-                    end: self.end,
-                },
-            ]
-        // ranges overlap [other.start, self.start, other.end, self.end]
-        } else if self.start > other.start && self.start < other.end && self.end > other.end {
-            vec![
-                IdsRange {
-                    start: self.start,
-                    end: other.end,
-                },
-                IdsRange {
-                    start: other.end + 1,
-                    end: self.end,
-                },
-            ]
-        // self starts in other and continues beyond other
-        } else if self.start >= other.start && self.end > other.end {
-            vec![
-                IdsRange {
-                    start: self.start,
-                    end: other.end,
-                },
-                IdsRange {
-                    start: other.end + 1,
-                    end: self.end,
-                },
-            ]
-            //   self is fully contained in other
-        } else if self.start >= other.start && self.end <= other.end {
-            vec![self]
-        } else {
-            panic!(
-                "unexpected condition: self = {:?}, other = {:?}",
-                self, other
-            );
-        };
-
-        // println!(
-        //     "for self = {:?} and other = {:?} got {:?}",
-        //     self, other, res
-        // );
-
-        res
-    }
-
-    fn to_desintation_range(&self, maps: &[RangeMap]) -> IdsRange {
-        IdsRange {
-            start: apply_maps(self.start, maps),
-            end: apply_maps(self.end, maps),
-        }
+fn intersect_with(this: &RangeInclusive<u64>, other: &RangeInclusive<u64>) -> Vec<RangeInclusive<u64>> {
+    // this is outside other => no split
+    if (this.start() < other.start() && this.end() < other.start())
+        || (this.start() > other.end() && this.end() > other.end())
+    {
+        vec![this.clone()]
+    // this intersects other from the end and this's end is contained inside other
+    } else if this.start() < other.start() && this.end() <= other.end() {
+        vec![*this.start()..=(*other.start() - 1), *other.start()..=*this.end()]
+    // ranges overlap [other.start(), this.start(), other.end(), this.end()]
+    } else if this.start() > other.start() && this.start() < other.end() && this.end() > other.end() {
+        vec![*this.start()..=*other.end(), (*other.end() + 1)..=*this.end()]
+    // this starts in other and continues beyond other
+    } else if this.start() >= other.start() && this.end() > other.end() {
+        vec![*this.start()..=*other.end(), (*other.end() + 1)..=*this.end()]
+    // this is fully contained in other
+    } else if this.start() >= other.start() && this.end() <= other.end() {
+        vec![this.clone()]
+    } else {
+        panic!("unexpected condition: this = {:?}, other = {:?}", this, other);
     }
 }
 
 fn apply_maps(value: u64, maps: &[RangeMap]) -> u64 {
-    match maps
-        .iter()
-        .find(|m| value >= m.source_range_start && value <= m.source_range_end)
-    {
+    match maps.iter().find(|m| value >= m.source_range_start && value <= m.source_range_end) {
         Some(m) => value + m.destination_range_start - m.source_range_start,
         None => value,
     }
 }
 
 pub fn p2(input: &Input) -> u64 {
-    let mut ranges = input
-        .seeds
-        .chunks(2)
-        .map(|chunk| IdsRange {
-            start: chunk[0],
-            end: chunk[0] + chunk[1] - 1,
-        })
-        .collect::<Vec<_>>();
-    ranges.sort_by_key(|r| r.start);
-    dbg!(ranges.len());
+    let mut ranges = input.seeds.chunks(2).map(|chunk| chunk[0]..=(chunk[0] + chunk[1] - 1)).collect::<Vec<_>>();
+    ranges.sort_by_key(|r| *r.start());
 
     for source_category in [Seed, Soil, Fertilizer, Water, Light, Temperature, Humidity] {
         let maps = input.maps.get(&source_category).unwrap();
-        println!("Category: {:?}", source_category);
-        dbg!(&ranges);
-
-        let new_ranges =
-            split_ranges_based_on_map_ranges(ranges, maps.iter().map(|m| m.to_source_ids_range()));
-
-        dbg!((
-            "[{}] # of ranges after splitting = {}",
-            source_category,
-            new_ranges.len()
-        ));
-        dbg!(&maps);
-        dbg!(&new_ranges);
-
-        // transform new_ranges to destination ranges
-        ranges = new_ranges
-            .into_iter()
-            .map(|range| range.to_desintation_range(maps))
-            .collect::<Vec<_>>();
-
-        println!("transformed ranges:");
-        dbg!(&ranges);
+        let new_ranges = split_ranges_based_on_map_ranges(ranges, maps.iter().map(|m| m.to_source_ids_range()));
+        ranges = new_ranges.into_iter().map(|range| to_desintation_range(range, maps)).collect::<Vec<_>>();
     }
 
-    ranges.into_iter().map(|r| r.start).min().unwrap()
+    ranges.into_iter().map(|r| *r.start()).min().unwrap()
 }
 
 // split the ranges in such a way that each new range will be mapped to the destination via the same map
 // or without using any maps
 fn split_ranges_based_on_map_ranges(
-    ranges: Vec<IdsRange>,
-    map_ranges: impl Iterator<Item = IdsRange>,
-) -> Vec<IdsRange> {
+    ranges: Vec<RangeInclusive<u64>>,
+    map_ranges: impl Iterator<Item = RangeInclusive<u64>>,
+) -> Vec<RangeInclusive<u64>> {
     let mut new_ranges = ranges;
 
     for map_source_ids_range in map_ranges {
         let mut new_ranges_updated = HashSet::new();
 
         for range in &new_ranges {
-            for intersection_range in range.intersect_with(map_source_ids_range) {
+            for intersection_range in intersect_with(range, &map_source_ids_range) {
                 new_ranges_updated.insert(intersection_range);
             }
         }
@@ -303,6 +201,10 @@ fn split_ranges_based_on_map_ranges(
     }
 
     new_ranges
+}
+
+fn to_desintation_range(this: RangeInclusive<u64>, maps: &[RangeMap]) -> RangeInclusive<u64> {
+    apply_maps(*this.start(), maps)..=apply_maps(*this.end(), maps)
 }
 
 #[cfg(test)]
@@ -369,30 +271,13 @@ mod tests {
 
     #[test]
     fn split_ranges_based_on_map_ranges_test() {
-        let ranges = vec![
-            IdsRange { start: 57, end: 69 },
-            IdsRange { start: 81, end: 94 },
-        ];
+        let ranges = vec![57..=69, 81..=94];
+        let map_ranges = vec![11..=52, 53..=60];
 
-        let map_ranges = vec![
-            IdsRange { start: 11, end: 52 },
-            IdsRange { start: 53, end: 60 },
-        ];
-
-        assert_eq!(
-            ranges[0].intersect_with(map_ranges[0]),
-            vec![IdsRange { start: 57, end: 69 }]
-        );
+        assert_eq!(intersect_with(&ranges[0], &map_ranges[0]), vec![57..=69]);
 
         let mut splitted = split_ranges_based_on_map_ranges(ranges, map_ranges.into_iter());
-        splitted.sort_by_key(|r| r.start);
-        assert_eq!(
-            splitted,
-            vec![
-                IdsRange { start: 57, end: 60 },
-                IdsRange { start: 61, end: 69 },
-                IdsRange { start: 81, end: 94 }
-            ]
-        );
+        splitted.sort_by_key(|r| *r.start());
+        assert_eq!(splitted, vec![57..=60, 61..=69, 81..=94]);
     }
 }

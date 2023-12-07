@@ -1,0 +1,176 @@
+<!-- livebook:{"persist_outputs":true} -->
+
+# Day 7
+
+## Section
+
+```elixir
+input = Path.join(__DIR__, "inputs/d07") |> File.read!()
+
+test_input = """
+32T3K 765
+T55J5 684
+KK677 28
+KTJJT 220
+QQQJA 483
+"""
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+"32T3K 765\nT55J5 684\nKK677 28\nKTJJT 220\nQQQJA 483\n"
+```
+
+```elixir
+defmodule D07 do
+  def parse_input(input) when is_binary(input) do
+    input
+    |> String.trim()
+    |> String.split("\n")
+    |> Enum.map(fn line ->
+      [hand, bid] = String.split(line)
+      {hand, String.to_integer(bid)}
+    end)
+  end
+
+  def hand_strength(hand) when is_binary(hand) do
+    cards = String.graphemes(hand)
+
+    freqs =
+      cards
+      |> Enum.frequencies()
+      |> Map.values()
+      |> Enum.sort(:desc)
+
+    hand_type_strength =
+      case freqs do
+        [5] -> 7
+        [4, 1] -> 6
+        [3, 2] -> 5
+        [3, 1, 1] -> 4
+        [2, 2, 1] -> 3
+        [2, 1, 1, 1] -> 2
+        [1, 1, 1, 1, 1] -> 1
+      end
+
+    card_strengths =
+      Enum.map(cards, fn
+        "A" -> 14
+        "K" -> 13
+        "Q" -> 12
+        "J" -> 11
+        "T" -> 10
+        card -> String.to_integer(card)
+      end)
+
+    {hand_type_strength, card_strengths}
+  end
+
+  def p1(hands) when is_list(hands) do
+    hands
+    |> Enum.sort_by(fn {hand, _bid} -> D07.hand_strength(hand) end)
+    |> Enum.with_index(1)
+    |> Enum.map(fn {{_hand, bid}, rank} -> bid * rank end)
+    |> Enum.sum()
+  end
+end
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+{:module, D07, <<70, 79, 82, 49, 0, 0, 14, ...>>, {:p1, 1}}
+```
+
+```elixir
+test_hands = D07.parse_input(test_input)
+hands = D07.parse_input(input)
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+[
+  {"3J4KT", 513},
+  {"Q3K42", 147},
+  {"29JQK", 187},
+  {"AAKA9", 821},
+  {"555J5", 571},
+  {"64JQ2", 388},
+  {"A29J2", 877},
+  {"33399", 59},
+  {"AJ7A8", 312},
+  {"3AA83", 474},
+  {"9J979", 218},
+  {"78478", 432},
+  {"96644", 502},
+  {"JKK8T", 647},
+  {"33924", 127},
+  {"56J42", 864},
+  {"28J66", 208},
+  {"44494", 469},
+  {"93939", 167},
+  {"62224", 191},
+  {"4T3TT", 447},
+  {"69J99", 217},
+  {"7ATJ7", 99},
+  {"8325T", 792},
+  {"T3444", 545},
+  {"99J9A", 968},
+  {"5J474", 724},
+  {"Q89K2", 739},
+  {"7KJJK", 565},
+  {"53A33", 716},
+  {"TQ5QA", 573},
+  {"TQJK5", 109},
+  {"JQ4QQ", 436},
+  {"TQ683", 219},
+  {"QKA6A", 711},
+  {"2T456", 365},
+  {"TKT7K", 292},
+  {"Q96AJ", 936},
+  {"TTTT8", 22},
+  {"9999A", 306},
+  {"6KA94", 376},
+  {"Q4A44", 928},
+  {"3QKKQ", 29},
+  {"Q33Q3", 185},
+  {"83333", 318},
+  {"3Q4AJ", 668},
+  {"84T8A", 696},
+  {"9T444", 108},
+  {"K3A83", ...},
+  {...},
+  ...
+]
+```
+
+```elixir
+test_hands
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+[{"32T3K", 765}, {"T55J5", 684}, {"KK677", 28}, {"KTJJT", 220}, {"QQQJA", 483}]
+```
+
+```elixir
+# 250453939
+hands
+|> Enum.sort_by(fn {hand, _bid} -> D07.hand_strength(hand) end)
+|> Enum.with_index(1)
+|> Enum.map(fn {{_hand, bid}, rank} -> bid * rank end)
+|> Enum.sum()
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+250453939
+```
+
+```elixir
+
+```

@@ -34,14 +34,11 @@ defmodule D07 do
     end)
   end
 
-  def hand_strength(hand) when is_binary(hand) do
-    cards = String.graphemes(hand)
+  def hand_strength(hand, opts \\ []) when is_binary(hand) do
+    joker_rule = Keyword.get(opts, :joker_rule, false)
 
-    freqs =
-      cards
-      |> Enum.frequencies()
-      |> Map.values()
-      |> Enum.sort(:desc)
+    cards = String.graphemes(hand)
+    freqs = card_frequencies(cards, joker_rule)
 
     hand_type_strength =
       case freqs do
@@ -59,7 +56,8 @@ defmodule D07 do
         "A" -> 14
         "K" -> 13
         "Q" -> 12
-        "J" -> 11
+        "J" when joker_rule -> 1
+        "J" when not joker_rule -> 11
         "T" -> 10
         card -> String.to_integer(card)
       end)
@@ -67,6 +65,33 @@ defmodule D07 do
     {hand_type_strength, card_strengths}
   end
 
+  def card_frequencies(cards, _joker_rule = false) when is_list(cards) do
+    cards
+    |> Enum.frequencies()
+    |> Map.values()
+    |> Enum.sort(:desc)
+  end
+
+  def card_frequencies(cards, _joker_rule = true) when is_list(cards) do
+    groups = Enum.group_by(cards, fn x -> x end)
+
+    {groups, joker_bonus} =
+      if Map.has_key?(groups, "J") && map_size(groups) > 1 do
+        {Map.delete(groups, "J"), groups["J"] |> length()}
+      else
+        {groups, 0}
+      end
+
+    [highest_freq | rest] =
+      groups
+      |> Map.values()
+      |> Enum.map(&length/1)
+      |> Enum.sort(:desc)
+
+    [highest_freq + joker_bonus | rest]
+  end
+
+  # 250453939 for input
   def p1(hands) when is_list(hands) do
     hands
     |> Enum.sort_by(fn {hand, _bid} -> D07.hand_strength(hand) end)
@@ -80,7 +105,7 @@ end
 <!-- livebook:{"output":true} -->
 
 ```
-{:module, D07, <<70, 79, 82, 49, 0, 0, 14, ...>>, {:p1, 1}}
+{:module, D07, <<70, 79, 82, 49, 0, 0, 21, ...>>, {:p1, 1}}
 ```
 
 ```elixir
@@ -172,5 +197,69 @@ hands
 ```
 
 ```elixir
+hands
+|> Enum.sort_by(fn {hand, _bid} -> D07.hand_strength(hand, joker_rule: true) end)
+|> Enum.with_index(1)
+|> Enum.map(fn {{_hand, bid}, rank} -> bid * rank end)
+|> Enum.sum()
+```
 
+<!-- livebook:{"output":true} -->
+
+```
+248652697
+```
+
+```elixir
+{hand, bid} = test_hands |> Enum.at(1)
+cards = String.graphemes(hand)
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+["T", "5", "5", "J", "5"]
+```
+
+```elixir
+groups =
+  cards
+  |> Enum.group_by(fn x -> x end)
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+%{"5" => ["5", "5", "5"], "J" => ["J"], "T" => ["T"]}
+```
+
+```elixir
+{groups, joker_bonus} =
+  if Map.has_key?(groups, "J") && Map.size(groups) > 1 do
+    {Map.delete(groups, "J"), groups["J"] |> length()}
+  else
+    {groups, 0}
+  end
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+{%{"5" => ["5", "5", "5"], "T" => ["T"]}, 1}
+```
+
+```elixir
+[highest_freq | rest] =
+  groups
+  |> Map.values()
+  |> Enum.map(&length/1)
+  |> Enum.sort(:desc)
+
+[highest_freq + joker_bonus | rest]
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+[4, 1]
 ```

@@ -5,24 +5,6 @@
 ## Section
 
 ```elixir
-input = Path.join(__DIR__, "inputs/d07") |> File.read!()
-
-test_input = """
-32T3K 765
-T55J5 684
-KK677 28
-KTJJT 220
-QQQJA 483
-"""
-```
-
-<!-- livebook:{"output":true} -->
-
-```
-"32T3K 765\nT55J5 684\nKK677 28\nKTJJT 220\nQQQJA 483\n"
-```
-
-```elixir
 defmodule D07 do
   def parse_input(input) when is_binary(input) do
     input
@@ -91,175 +73,67 @@ defmodule D07 do
     [highest_freq + joker_bonus | rest]
   end
 
-  # 250453939 for input
-  def p1(hands) when is_list(hands) do
+  def get_winnings(hands, opts \\ []) when is_list(hands) do
     hands
-    |> Enum.sort_by(fn {hand, _bid} -> D07.hand_strength(hand) end)
+    |> Enum.sort_by(fn {hand, _bid} -> hand_strength(hand, opts) end)
     |> Enum.with_index(1)
     |> Enum.map(fn {{_hand, bid}, rank} -> bid * rank end)
     |> Enum.sum()
   end
+
+  def p1(hands) when is_list(hands), do: get_winnings(hands)
+  def p2(hands) when is_list(hands), do: get_winnings(hands, joker_rule: true)
 end
 ```
 
 <!-- livebook:{"output":true} -->
 
 ```
-{:module, D07, <<70, 79, 82, 49, 0, 0, 21, ...>>, {:p1, 1}}
+{:module, D07, <<70, 79, 82, 49, 0, 0, 23, ...>>, {:p2, 1}}
 ```
 
 ```elixir
-test_hands = D07.parse_input(test_input)
-hands = D07.parse_input(input)
-```
+ExUnit.start(autorun: false)
 
-<!-- livebook:{"output":true} -->
+defmodule D07Test do
+  use ExUnit.Case, async: true
 
-```
-[
-  {"3J4KT", 513},
-  {"Q3K42", 147},
-  {"29JQK", 187},
-  {"AAKA9", 821},
-  {"555J5", 571},
-  {"64JQ2", 388},
-  {"A29J2", 877},
-  {"33399", 59},
-  {"AJ7A8", 312},
-  {"3AA83", 474},
-  {"9J979", 218},
-  {"78478", 432},
-  {"96644", 502},
-  {"JKK8T", 647},
-  {"33924", 127},
-  {"56J42", 864},
-  {"28J66", 208},
-  {"44494", 469},
-  {"93939", 167},
-  {"62224", 191},
-  {"4T3TT", 447},
-  {"69J99", 217},
-  {"7ATJ7", 99},
-  {"8325T", 792},
-  {"T3444", 545},
-  {"99J9A", 968},
-  {"5J474", 724},
-  {"Q89K2", 739},
-  {"7KJJK", 565},
-  {"53A33", 716},
-  {"TQ5QA", 573},
-  {"TQJK5", 109},
-  {"JQ4QQ", 436},
-  {"TQ683", 219},
-  {"QKA6A", 711},
-  {"2T456", 365},
-  {"TKT7K", 292},
-  {"Q96AJ", 936},
-  {"TTTT8", 22},
-  {"9999A", 306},
-  {"6KA94", 376},
-  {"Q4A44", 928},
-  {"3QKKQ", 29},
-  {"Q33Q3", 185},
-  {"83333", 318},
-  {"3Q4AJ", 668},
-  {"84T8A", 696},
-  {"9T444", 108},
-  {"K3A83", ...},
-  {...},
-  ...
-]
-```
+  @test_input D07.parse_input("""
+              32T3K 765
+              T55J5 684
+              KK677 28
+              KTJJT 220
+              QQQJA 483
+              """)
 
-```elixir
-test_hands
-```
+  @input Path.join(__DIR__, "inputs/d07") |> File.read!() |> D07.parse_input()
 
-<!-- livebook:{"output":true} -->
-
-```
-[{"32T3K", 765}, {"T55J5", 684}, {"KK677", 28}, {"KTJJT", 220}, {"QQQJA", 483}]
-```
-
-```elixir
-# 250453939
-hands
-|> Enum.sort_by(fn {hand, _bid} -> D07.hand_strength(hand) end)
-|> Enum.with_index(1)
-|> Enum.map(fn {{_hand, bid}, rank} -> bid * rank end)
-|> Enum.sum()
-```
-
-<!-- livebook:{"output":true} -->
-
-```
-250453939
-```
-
-```elixir
-hands
-|> Enum.sort_by(fn {hand, _bid} -> D07.hand_strength(hand, joker_rule: true) end)
-|> Enum.with_index(1)
-|> Enum.map(fn {{_hand, bid}, rank} -> bid * rank end)
-|> Enum.sum()
-```
-
-<!-- livebook:{"output":true} -->
-
-```
-248652697
-```
-
-```elixir
-{hand, bid} = test_hands |> Enum.at(1)
-cards = String.graphemes(hand)
-```
-
-<!-- livebook:{"output":true} -->
-
-```
-["T", "5", "5", "J", "5"]
-```
-
-```elixir
-groups =
-  cards
-  |> Enum.group_by(fn x -> x end)
-```
-
-<!-- livebook:{"output":true} -->
-
-```
-%{"5" => ["5", "5", "5"], "J" => ["J"], "T" => ["T"]}
-```
-
-```elixir
-{groups, joker_bonus} =
-  if Map.has_key?(groups, "J") && Map.size(groups) > 1 do
-    {Map.delete(groups, "J"), groups["J"] |> length()}
-  else
-    {groups, 0}
+  test "part 1 works" do
+    assert D07.p1(@test_input) == 6440
+    assert D07.p1(@input) == 250_453_939
   end
+
+  test "part 2 works" do
+    assert D07.p2(@test_input) == 5905
+    assert D07.p2(@input) == 248_652_697
+  end
+end
+
+ExUnit.run()
 ```
 
 <!-- livebook:{"output":true} -->
 
 ```
-{%{"5" => ["5", "5", "5"], "T" => ["T"]}, 1}
-```
+..
+Finished in 0.00 seconds (0.00s async, 0.00s sync)
+2 tests, 0 failures
 
-```elixir
-[highest_freq | rest] =
-  groups
-  |> Map.values()
-  |> Enum.map(&length/1)
-  |> Enum.sort(:desc)
-
-[highest_freq + joker_bonus | rest]
+Randomized with seed 504885
 ```
 
 <!-- livebook:{"output":true} -->
 
 ```
-[4, 1]
+%{total: 2, failures: 0, excluded: 0, skipped: 0}
 ```

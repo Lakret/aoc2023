@@ -1,0 +1,181 @@
+<!-- livebook:{"persist_outputs":true} -->
+
+# Day 8
+
+## Solution
+
+```elixir
+defmodule D08 do
+  def parse_input(input) do
+    [moves | network] = input |> String.trim() |> String.split("\n", trim: true)
+
+    network =
+      Enum.map(network, fn node ->
+        [node, paths] = String.split(node, " = ")
+        [left, right] = paths |> String.trim("(") |> String.trim(")") |> String.split(", ")
+        {node, %{left: left, right: right}}
+      end)
+      |> Enum.into(%{})
+
+    {String.graphemes(moves), network}
+  end
+
+  def p1(moves, network) when is_list(moves) and is_map(network) do
+    Stream.cycle(moves)
+    |> Enum.reduce_while({"AAA", 0}, fn move, {pos, steps_taken} ->
+      pos =
+        case move do
+          "L" -> network[pos][:left]
+          "R" -> network[pos][:right]
+        end
+
+      steps_taken = steps_taken + 1
+
+      if pos == "ZZZ", do: {:halt, steps_taken}, else: {:cont, {pos, steps_taken}}
+    end)
+  end
+
+  def p2(moves, network) when is_list(moves) and is_map(network) do
+    ghost_steps(moves, network) |> lcm()
+  end
+
+  def ghost_steps(moves, network) do
+    nodes = Map.keys(network)
+
+    states =
+      nodes
+      |> Enum.filter(&String.ends_with?(&1, "A"))
+      |> Enum.map(fn node -> {node, {node, 0}} end)
+      |> Enum.into(%{})
+
+    z_nodes = nodes |> Enum.filter(&String.ends_with?(&1, "Z")) |> MapSet.new()
+
+    Stream.cycle(moves)
+    |> Enum.reduce_while(
+      {states, z_nodes, []},
+      fn move, {states, z_nodes, steps} ->
+        if map_size(states) == 0 do
+          {:halt, steps}
+        else
+          states =
+            Enum.map(states, fn {node, {pos, step}} ->
+              pos =
+                case move do
+                  "L" -> network[pos][:left]
+                  "R" -> network[pos][:right]
+                end
+
+              {node, {pos, step + 1}}
+            end)
+            |> Enum.into(states)
+
+          {states, steps} =
+            Enum.filter(states, fn {_node, {pos, _}} -> pos in z_nodes end)
+            |> Enum.reduce(
+              {states, steps},
+              fn {finished_node, {_pos, step}}, {states, steps} ->
+                {Map.delete(states, finished_node), [step | steps]}
+              end
+            )
+
+          {:cont, {states, z_nodes, steps}}
+        end
+      end
+    )
+  end
+
+  def lcm(nums) do
+    expr = "x=lcm(#{inspect(nums)}); println(x)"
+    {res, 0} = System.cmd("julia", ["--eval", expr], stderr_to_stdout: true)
+    String.trim(res) |> String.to_integer()
+  end
+end
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+{:module, D08, <<70, 79, 82, 49, 0, 0, 26, ...>>, {:lcm, 1}}
+```
+
+## Tests
+
+```elixir
+ExUnit.start(autorun: false)
+
+defmodule D08Test do
+  use ExUnit.Case, async: true
+
+  @test_input1 D08.parse_input("""
+               RL
+
+               AAA = (BBB, CCC)
+               BBB = (DDD, EEE)
+               CCC = (ZZZ, GGG)
+               DDD = (DDD, DDD)
+               EEE = (EEE, EEE)
+               GGG = (GGG, GGG)
+               ZZZ = (ZZZ, ZZZ)
+               """)
+
+  @test_input2 D08.parse_input("""
+               LLR
+
+               AAA = (BBB, BBB)
+               BBB = (AAA, ZZZ)
+               ZZZ = (ZZZ, ZZZ)
+               """)
+
+  @test_input3 D08.parse_input("""
+               LR
+
+               11A = (11B, XXX)
+               11B = (XXX, 11Z)
+               11Z = (11B, XXX)
+               22A = (22B, XXX)
+               22B = (22C, 22C)
+               22C = (22Z, 22Z)
+               22Z = (22B, 22B)
+               XXX = (XXX, XXX)
+               """)
+
+  @input Path.join(__DIR__, "inputs/d08") |> File.read!() |> D08.parse_input()
+
+  test "part 1 works" do
+    {moves, network} = @test_input1
+    assert D08.p1(moves, network) == 2
+
+    {moves, network} = @test_input2
+    assert D08.p1(moves, network) == 6
+
+    {moves, network} = @input
+    assert D08.p1(moves, network) == 19783
+  end
+
+  test "part 2 works" do
+    {moves, network} = @test_input3
+    assert D08.p2(moves, network) == 6
+
+    {moves, network} = @input
+    assert D08.p2(moves, network) == 9_177_460_370_549
+  end
+end
+
+ExUnit.run()
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+..
+Finished in 0.3 seconds (0.3s async, 0.00s sync)
+2 tests, 0 failures
+
+Randomized with seed 158468
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+%{excluded: 0, failures: 0, skipped: 0, total: 2}
+```

@@ -20,15 +20,13 @@ defmodule D08 do
     {String.graphemes(moves), network}
   end
 
+  def do_move(network, pos, "L"), do: network[pos][:left]
+  def do_move(network, pos, "R"), do: network[pos][:right]
+
   def p1(moves, network) when is_list(moves) and is_map(network) do
     Stream.cycle(moves)
     |> Enum.reduce_while({"AAA", 0}, fn move, {pos, steps_taken} ->
-      pos =
-        case move do
-          "L" -> network[pos][:left]
-          "R" -> network[pos][:right]
-        end
-
+      pos = do_move(network, pos, move)
       steps_taken = steps_taken + 1
 
       if pos == "ZZZ", do: {:halt, steps_taken}, else: {:cont, {pos, steps_taken}}
@@ -59,12 +57,7 @@ defmodule D08 do
         else
           states =
             Enum.map(states, fn {node, {pos, step}} ->
-              pos =
-                case move do
-                  "L" -> network[pos][:left]
-                  "R" -> network[pos][:right]
-                end
-
+              pos = do_move(network, pos, move)
               {node, {pos, step + 1}}
             end)
             |> Enum.into(states)

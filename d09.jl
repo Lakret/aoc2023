@@ -2,13 +2,6 @@ using Pipe
 
 parse_input(input) = @pipe strip(input) |> split(_, "\n") |> split.(_) |> map(x -> parse.(Int64, x), _)
 
-test_history = parse_input("""
-  0 3 6 9 12 15
-  1 3 6 10 15 21
-  10 13 16 21 30 45
-  """)
-history = readchomp("inputs/d09") |> parse_input
-
 function predict(value_history; forward=true)
   sequence = deepcopy(value_history)
   sequences = [sequence]
@@ -30,6 +23,13 @@ function predict(value_history; forward=true)
 
   forward ? last(sequences[1]) : first(sequences[1])
 end
+
+test_history = parse_input("""
+  0 3 6 9 12 15
+  1 3 6 10 15 21
+  10 13 16 21 30 45
+  """)
+history = readchomp("inputs/d09") |> parse_input
 
 p1(history) = predict.(history) |> sum
 p2(history) = predict.(history; forward=false) |> sum

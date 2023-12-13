@@ -25,9 +25,123 @@ String.at(".##?..", 3)
 ```
 
 ```elixir
+# defmodule D12 do
+#   @char_to_is_damaged %{"?" => nil, "." => false, "#" => true}
+#   @is_damaged_to_char %{nil => "?", false => ".", true => "#"}
+
+#   def parse_input(input) do
+#     input
+#     |> String.split("\n", trim: true)
+#     |> Enum.map(fn line ->
+#       [states, damaged] = String.split(line)
+
+#       states = 
+#         String.graphemes(states)
+#         |> Enum.map(&@char_to_is_damaged[&1])
+#         |> Enum.chunk_by(&(&1))
+#         |> Enum.map(fn [state | _] = group -> {length(group), state} end)
+
+#       damaged = 
+#         damaged 
+#         |> String.split(",") 
+#         |> Enum.map(&String.to_integer/1)
+
+#       {states, damaged}
+#     end)
+#   end
+
+#   # TODO: better model for checking consistency and speed:
+#   # instead of map from pos to value, let's do a run-length encoding list, perhaps?
+#   # ?###????????. 3,2,1
+#   # [{{1, 0}, nil}, {{3, 0}, true}, {{8, 0}, nil}, {{1, 0}, false}]
+#   # 
+#   # then, we can introduce stronger constraints (e.g., we know that fitting more than one
+#   # of the damaged groups inside an unknown group requires additional spaces for each 
+#   # damaged group; we also can see in the example above that the first ? is always false)
+#   def solve(states, damaged) when is_list(states) and is_list(damaged) do
+#     {unknown, known} = 
+#       Enum.with_index(states, fn el, id -> {{id, 0}, el} end)
+#       |> Enum.split_with(fn {_group_id, {_run_length, state}} -> is_nil(state) end)
+#     unknown = Enum.into(unknown, %{})
+#     known = Enum.into(known, %{})
+#     unknown_groups = Map.keys(unknown) |> MapSet.new()
+
+#     if !Enum.empty?(unknown_groups) do
+#       solve_inner(
+#         unknown, 
+#         known,
+#         damaged,
+#         length(states),
+#         unknown_groups
+#       )
+#     else
+#       [states]
+#     end
+#   end
+
+#   @doc false
+#   def solve_inner(unknown, known, damaged, total_groups, unknown_groups)
+
+#   def solve_inner(unknown, known, _damaged, _total_groups, unknown_groups) 
+#     when map_size(unknown) == 0, do: [known]
+
+#   def solve_inner(unknown, known, damaged, total_groups, unknown_groups) do
+#     IO.inspect({unknown, known, damaged, total_groups, unknown_groups})
+#     unknown_group_id = Map.keys(unknown) |> Enum.min()
+#     unknown = Map.delete(unknown, unknown_group_id)
+#     unknown_groups = MapSet.delete(unknown_groups, unknown_group_id)
+
+#     get_domain(unknown, known, unknown_groups)
+#     |> Enum.flat_map(fn possible_value ->
+#       known = Map.put(known, unknown_group_id, possible_value)
+
+#       if consistent?(unknown, known, damaged, total_groups) do
+#         # TODO: known_states = infer(known_states)
+#         solve_inner(unknown, known, damaged, total_groups, unknown_groups)
+#       else
+#         []
+#       end
+#     end)
+#   end
+
+#   def consistent?(unknown, known, damaged, total_groups) do
+#     {unknown, known, damaged, remaining_damaged_slots} = Enum.reduce(
+#       0..total_groups, 
+#       {unknown, known, damaged, 0}, 
+#       fn id, {unknown, known, damaged, remaining_damaged_slots} -> 
+#         # if Map.has_key?(unknown, id)
+#       end
+#     )
+#   end
+
+#   def get_domain(unknown, known, unknown_groups) do
+#     []
+#   end
+# end
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+nil
+```
+
+```elixir
+:timer.tc(fn ->
+  # String.to_integer("0110011", 2) 
+  ["0", "1", "1", "0", "0", "1", "1"] |> Enum.join() |> String.to_integer(2)
+end)
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+{8, 51}
+```
+
+```elixir
 defmodule D12 do
   @char_to_is_damaged %{"?" => nil, "." => false, "#" => true}
-  @is_damaged_to_char %{nil => "?", false => ".", true => "#"}
 
   def parse_input(input) do
     input
@@ -38,8 +152,6 @@ defmodule D12 do
       states =
         String.graphemes(states)
         |> Enum.map(&@char_to_is_damaged[&1])
-        |> Enum.chunk_by(& &1)
-        |> Enum.map(fn [state | _] = group -> {length(group), state} end)
 
       damaged =
         damaged
@@ -50,62 +162,116 @@ defmodule D12 do
     end)
   end
 
-  # TODO: better model for checking consistency and speed:
-  # instead of map from pos to value, let's do a run-length encoding list, perhaps?
-  # ?###????????. 3,2,1
-  # [{1, nil}, {3, true}, {8, nil}, {1, false}]
-  # 
-  # then, we can introduce stronger constraints (e.g., we know that fitting more than one
-  # of the damaged groups inside an unknown group requires additional spaces for each 
-  # damaged group; we also can see in the example above that the first ? is always false)
   def solve(states, damaged) when is_list(states) and is_list(damaged) do
-    {unknown, known} =
-      Enum.with_index(states, fn el, id -> {id, el} end)
-      |> Enum.split_with(fn {_group_id, {_run_length, state}} -> is_nil(state) end)
+    find_bounds(states, damaged)
+    |> Enum.filter(&fits?(&1, states, damaged))
+    |> length()
+  end
 
-    if length(unknown) > 0 do
-      solve_inner(
-        Enum.into(unknown, %{}),
-        Enum.into(known, %{}),
-        damaged,
-        length(states)
-      )
+  def find_bounds(states, damaged) do
+    IO.inspect({states, damaged})
+
+    min_possible_states =
+      states
+      |> Enum.map(fn
+        nil -> "0"
+        true -> "1"
+        false -> "0"
+      end)
+      |> Enum.join()
+      |> String.to_integer(2)
+
+    max_possible_states =
+      states
+      |> Enum.map(fn
+        nil -> "1"
+        true -> "1"
+        false -> "0"
+      end)
+      |> Enum.join()
+      |> String.to_integer(2)
+
+    min_possible_damaged =
+      damaged
+      |> Enum.intersperse(0)
+      |> Enum.map(fn damaged_group_length ->
+        if damaged_group_length == 0 do
+          "0"
+        else
+          String.duplicate("1", damaged_group_length)
+        end
+      end)
+      |> Enum.join()
+      |> String.to_integer(2)
+
+    [least | greater] = Enum.reverse(damaged)
+
+    greater =
+      greater
+      |> Enum.reverse()
+      |> Enum.intersperse(0)
+      |> Enum.map(fn damaged_group_length ->
+        if damaged_group_length == 0 do
+          "0"
+        else
+          String.duplicate("1", damaged_group_length)
+        end
+      end)
+      |> Enum.join()
+
+    max_zeros_to_add = length(states) - String.length(greater) - least
+
+    max_possible_damaged =
+      [greater, String.duplicate("0", max_zeros_to_add), String.duplicate("1", least)]
+      |> Enum.join()
+      |> String.to_integer(2)
+
+    # IO.inspect(
+    #   {min_possible_states, max_possible_states, min_possible_damaged, max_possible_damaged}
+    # )
+
+    min_number = max(min_possible_states, min_possible_damaged)
+    max_number = min(max_possible_states, max_possible_damaged)
+    min_number..max_number
+  end
+
+  def fits?(number, states, damaged) do
+    bits = number_to_states(number, length(states))
+
+    bits_match_states =
+      Enum.zip([states, bits])
+      |> Enum.all?(fn
+        {nil, _bit} -> true
+        {true, true} -> true
+        {false, false} -> true
+        _ -> false
+      end)
+
+    if bits_match_states do
+      damaged_groups =
+        Enum.chunk_by(bits, fn bit -> bit end)
+        |> Enum.flat_map(fn
+          [false | _] -> []
+          [true | _] = damaged_group -> [length(damaged_group)]
+        end)
+
+      damaged_groups == damaged
     else
-      [states]
+      false
     end
   end
 
-  @doc false
-  def solve_inner(unknown, known, damaged, n)
+  def number_to_states(number, expected_length) do
+    binary = Integer.to_string(number, 2)
 
-  def solve_inner(unknown, known, _damaged, _n)
-      when map_size(unknown) == 0,
-      do: [known]
+    padding = expected_length - String.length(binary)
 
-  def solve_inner(unknown, known, damaged, n) do
-    IO.inspect({unknown, known, damaged, n})
-    unknown_id = Map.keys(unknown) |> Enum.min()
-    unknown = Map.delete(unknown, unknown_id)
-
-    # TODO: different domain! we need to add groups for each assignment of variables possible
-    # depending on the run-length of the group, it seems
-    Enum.flat_map([true, false], fn possible_value ->
-      known = Map.put(known, unknown_id, possible_value)
-
-      if consistent?(known, damaged, n) do
-        # TODO: known_states = infer(known_states)
-        solve_inner(unknown, known, damaged, n)
-      else
-        []
-      end
+    String.pad_leading(binary, padding, "0")
+    |> String.graphemes()
+    |> Enum.map(fn
+      "0" -> false
+      "1" -> true
     end)
-  end
-
-  def consistent?(known, damaged, n) do
-    # TODO:
-    # Enum.reduce_while(0..n, damaged, fn id, damaged -> 
-    #   known_states
-    # end)
   end
 end
 ```
@@ -113,24 +279,7 @@ end
 <!-- livebook:{"output":true} -->
 
 ```
-warning: variable "damaged" is unused (if the variable is not meant to be used, prefix it with an underscore)
-  d12.livemd#cell:i5msuh4vivy2x4cfxxjodzweyrzkfdn6:76: D12.consistent?/3
-
-warning: variable "known" is unused (if the variable is not meant to be used, prefix it with an underscore)
-  d12.livemd#cell:i5msuh4vivy2x4cfxxjodzweyrzkfdn6:76: D12.consistent?/3
-
-warning: variable "n" is unused (if the variable is not meant to be used, prefix it with an underscore)
-  d12.livemd#cell:i5msuh4vivy2x4cfxxjodzweyrzkfdn6:76: D12.consistent?/3
-
-warning: module attribute @is_damaged_to_char was set but never used
-  d12.livemd#cell:i5msuh4vivy2x4cfxxjodzweyrzkfdn6:3
-
-```
-
-<!-- livebook:{"output":true} -->
-
-```
-{:module, D12, <<70, 79, 82, 49, 0, 0, 19, ...>>, {:consistent?, 3}}
+{:module, D12, <<70, 79, 82, 49, 0, 0, 26, ...>>, {:number_to_states, 2}}
 ```
 
 ```elixir
@@ -158,40 +307,55 @@ test_input = D12.parse_input(test_input)
 
 ```
 [
-  {[{3, nil}, {1, false}, {3, true}], [1, 1, 3]},
-  {[{1, false}, {2, nil}, {2, false}, {2, nil}, {3, false}, {1, nil}, {2, true}, {1, false}],
+  {[nil, nil, nil, false, true, true, true], [1, 1, 3]},
+  {[false, nil, nil, false, false, nil, nil, false, false, false, nil, true, true, false],
    [1, 1, 3]},
-  {[
-     {1, nil},
-     {1, true},
-     {1, nil},
-     {1, true},
-     {1, nil},
-     {1, true},
-     {1, nil},
-     {1, true},
-     {1, nil},
-     {1, true},
-     {1, nil},
-     {1, true},
-     {1, nil},
-     {1, true},
-     {1, nil}
-   ], [1, 3, 1, 6]},
-  {[{4, nil}, {1, false}, {1, true}, {3, false}, {1, true}, {3, false}], [4, 1, 1]},
-  {[{4, nil}, {1, false}, {6, true}, {2, false}, {5, true}, {1, false}], [1, 6, 5]},
-  {[{1, nil}, {3, true}, {8, nil}], [3, 2, 1]}
+  {[nil, true, nil, true, nil, true, nil, true, nil, true, nil, true, nil, true, nil], [1, 3, 1, 6]},
+  {[nil, nil, nil, nil, false, true, false, false, false, true, false, false, false], [4, 1, 1]},
+  {[nil, nil, nil, nil, false, true, true, true, true, true, true, false, false, true, true, true,
+    true, true, false], [1, 6, 5]},
+  {[nil, true, true, true, nil, nil, nil, nil, nil, nil, nil, nil], [3, 2, 1]}
 ]
 ```
 
 ```elixir
-{states, damaged} = test_input |> hd
+{states, damaged} = test_input |> Enum.at(1)
 ```
 
 <!-- livebook:{"output":true} -->
 
 ```
-{[{3, nil}, {1, false}, {3, true}], [1, 1, 3]}
+{[false, nil, nil, false, false, nil, nil, false, false, false, nil, true, true, false], [1, 1, 3]}
+```
+
+```elixir
+# iterate numbers padding them with leading 0 if needed to fit the length
+# each possibility is created by adding a given amount of zeros on each empty space
+#
+# or, try gap length encoding
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+nil
+```
+
+```elixir
+D12.find_bounds(states, damaged)
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+{[false, nil, nil, false, false, nil, nil, false, false, false, nil, true, true,
+  false], [1, 1, 3]}
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+87..6542
 ```
 
 ```elixir
@@ -201,7 +365,71 @@ D12.solve(states, damaged)
 <!-- livebook:{"output":true} -->
 
 ```
-{%{0 => {3, nil}}, %{1 => {1, false}, 2 => {3, true}}, [1, 1, 3], 3}
+{[false, nil, nil, false, false, nil, nil, false, false, false, nil, true, true,
+  false], [1, 1, 3]}
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+0
+```
+
+```elixir
+D12.find_bounds(states2, damaged2)
+|> Range.size()
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+{[nil, true, nil, true, nil, true, nil, true, nil, true, nil, true, nil, true,
+  nil], [1, 3, 1, 6]}
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+11905
+```
+
+```elixir
+groups = states |> Enum.chunk_by(fn x -> x end)
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+[[nil, nil, nil], [false], [true, true, true]]
+```
+
+```elixir
+# Enum.reduce_while([1, 1, 3], {groups, []}, fn damaged_group_size, {groups, consumed} -> 
+#   case groups do
+#     []
+#   end
+# end)
+```
+
+```elixir
+Enum.filter(groups, &Enum.all?/1) |> Enum.map(&length/1)
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+[3]
+```
+
+```elixir
+D12.solve(states, damaged)
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+{%{0 => {3, nil}}, %{1 => {1, false}, 2 => {3, true}}, [1, 1, 3], 3,
+ MapSet.new([0])}
 ```
 
 <!-- livebook:{"output":true} -->

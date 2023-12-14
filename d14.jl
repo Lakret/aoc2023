@@ -59,15 +59,13 @@ end
 
 function p2(input)
   (start, len, cycle_state) = find_cycle(input)
-  @show (start, len, cycle_state)
   additional_moves = (1000000000 - start) % len
-  @show additional_moves
 
   for _ = 1:additional_moves
     cycle_state = cycle(cycle_state)
   end
 
-  beam_load(input)
+  beam_load(cycle_state)
 end
 
 test_input = parse_input(
@@ -89,3 +87,6 @@ input = readchomp("inputs/d14") |> parse_input
 
 @assert p1(test_input) == 136
 @time @show p1(input) == 110090
+
+@assert p2(test_input) == 64
+@time @show p2(input) == 95254

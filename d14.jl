@@ -3,12 +3,13 @@ using Pipe
 parse_input(input) = @pipe input |> strip |> split(_, "\n") |> collect.(_) |> mapreduce(permutedims, vcat, _)
 
 function tilt_north(input)
-  tilted = deepcopy(input)
+  tilted = fill('.', size(input))
 
   for col = 1:size(tilted)[2]
     carrying = []
     for row = (size(input)[1]):-1:1
       if input[row, col] == '#'
+        tilted[row, col] = '#'
         offset = 1
         while !isempty(carrying)
           round_rock_row = pop!(carrying)
@@ -37,6 +38,29 @@ function p1(input)
   tilted = tilt_north(input)
   max_row = size(tilted)[1]
   [max_row - pos[1] + 1 for pos in findall(x -> x == 'O', tilted)] |> sum
+end
+
+function cycle(input)
+  tilted = tilt_north(input)
+  display(tilted)
+
+  tilted = tilt_north(rotr90(tilted))
+  display(tilted)
+  tilted = rotl90(tilted)
+  display(tilted)
+
+  tilted = tilt_north(rot180(tilted))
+  tilted = rot180(tilted)
+  display(tilted)
+
+  tilted = tilt_north(rotl90(tilted))
+  tilted = rotr90(tilted)
+  display(tilted)
+end
+
+function p2(input)
+  tilted = cycle(input)
+  tilted
 end
 
 test_input = parse_input(

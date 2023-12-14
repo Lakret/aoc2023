@@ -34,18 +34,40 @@ function tilt_north(input)
   tilted
 end
 
-function p1(input)
-  tilted = tilt_north(input)
-  max_row = size(tilted)[1]
-  [max_row - pos[1] + 1 for pos in findall(x -> x == 'O', tilted)] |> sum
+function beam_load(input)
+  max_row = size(input)[1]
+  [max_row - pos[1] + 1 for pos in findall(x -> x == 'O', input)] |> sum
 end
+
+p1(input) = tilt_north(input) |> beam_load
 
 cycle(input) =
   input |> tilt_north |> rotr90 |> tilt_north |> rotr90 |> tilt_north |> rotr90 |> tilt_north |> rotr90
 
+function find_cycle(input)
+  prev, next, iters = Dict(), input, 0
+
+  while next ∉ keys(prev)
+    prev[next] = iters
+
+    next = cycle(next)
+    iters += 1
+  end
+
+  (prev[next], iters - prev[next], next)
+end
+
 function p2(input)
-  tilted = cycle(input)
-  tilted
+  (start, len, cycle_state) = find_cycle(input)
+  @show (start, len, cycle_state)
+  additional_moves = (1000000000 - start) % len
+  @show additional_moves
+
+  for _ = 1:additional_moves
+    cycle_state = cycle(cycle_state)
+  end
+
+  beam_load(input)
 end
 
 test_input = parse_input(

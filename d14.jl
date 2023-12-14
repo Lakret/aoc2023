@@ -40,23 +40,8 @@ function p1(input)
   [max_row - pos[1] + 1 for pos in findall(x -> x == 'O', tilted)] |> sum
 end
 
-function cycle(input)
-  tilted = tilt_north(input)
-  display(tilted)
-
-  tilted = tilt_north(rotr90(tilted))
-  display(tilted)
-  tilted = rotl90(tilted)
-  display(tilted)
-
-  tilted = tilt_north(rot180(tilted))
-  tilted = rot180(tilted)
-  display(tilted)
-
-  tilted = tilt_north(rotl90(tilted))
-  tilted = rotr90(tilted)
-  display(tilted)
-end
+cycle(input) =
+  input |> tilt_north |> rotr90 |> tilt_north |> rotr90 |> tilt_north |> rotr90 |> tilt_north |> rotr90
 
 function p2(input)
   tilted = cycle(input)

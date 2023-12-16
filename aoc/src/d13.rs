@@ -132,15 +132,7 @@ fn find_unsmudged_symmetry(pattern: &Pattern) -> Option<(Option<usize>, Option<u
 }
 
 pub fn p2(patterns: &Vec<Pattern>) -> usize {
-    // if candidate != prev_answer {
-
-    let mut sum = 0;
-    for pattern in patterns {
-        let unsmudged_symmetry = find_unsmudged_symmetry(pattern).unwrap();
-        sum += symmetry_summary(unsmudged_symmetry);
-    }
-
-    sum
+    patterns.iter().map(|pattern| symmetry_summary(find_unsmudged_symmetry(pattern).unwrap())).sum()
 }
 
 #[cfg(test)]

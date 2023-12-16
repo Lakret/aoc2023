@@ -5,17 +5,6 @@
 ## Solution
 
 ```elixir
-"HASH"
-|> String.to_charlist()
-```
-
-<!-- livebook:{"output":true} -->
-
-```
-'HASH'
-```
-
-```elixir
 defmodule D15 do
   def parse_input(input) when is_binary(input) do
     input
@@ -94,68 +83,6 @@ end
 
 ```
 {:module, D15, <<70, 79, 82, 49, 0, 0, 24, ...>>, {:p2, 1}}
-```
-
-```elixir
-D15.custom_hash("cm")
-```
-
-<!-- livebook:{"output":true} -->
-
-```
-0
-```
-
-```elixir
-test_input = "rn=1,cm-,qp=3,cm=2,qp-,pc=4,ot=9,ab=5,pc-,pc=6,ot=7" |> D15.parse_input()
-```
-
-<!-- livebook:{"output":true} -->
-
-```
-["rn=1", "cm-", "qp=3", "cm=2", "qp-", "pc=4", "ot=9", "ab=5", "pc-", "pc=6", "ot=7"]
-```
-
-```elixir
-test_instructions = D15.reparse(test_input)
-```
-
-<!-- livebook:{"output":true} -->
-
-```
-[
-  {:put, "rn", 1},
-  {:remove, "cm"},
-  {:put, "qp", 3},
-  {:put, "cm", 2},
-  {:remove, "qp"},
-  {:put, "pc", 4},
-  {:put, "ot", 9},
-  {:put, "ab", 5},
-  {:remove, "pc"},
-  {:put, "pc", 6},
-  {:put, "ot", 7}
-]
-```
-
-```elixir
-D15.run(test_instructions)
-```
-
-<!-- livebook:{"output":true} -->
-
-```
-%{0 => [{"rn", 1}, {"cm", 2}], 3 => [{"ot", 7}, {"ab", 5}, {"pc", 6}]}
-```
-
-```elixir
-D15.p2(test_input)
-```
-
-<!-- livebook:{"output":true} -->
-
-```
-145
 ```
 
 ## Tests

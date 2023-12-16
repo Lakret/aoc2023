@@ -6,27 +6,29 @@ function tilt_north(input)
   tilted = fill('.', size(input))
 
   for col = 1:size(tilted)[2]
-    carrying = []
+    carrying = 0
+
     for row = (size(input)[1]):-1:1
       if input[row, col] == '#'
         tilted[row, col] = '#'
         offset = 1
-        while !isempty(carrying)
-          round_rock_row = pop!(carrying)
-          tilted[round_rock_row, col] = '.'
+
+        while carrying > 0
           tilted[row+offset, col] = 'O'
+
+          carrying -= 1
           offset += 1
         end
       elseif input[row, col] == 'O'
-        push!(carrying, row)
+        carrying += 1
       end
     end
 
     offset = 1
-    while !isempty(carrying)
-      round_rock_row = pop!(carrying)
-      tilted[round_rock_row, col] = '.'
+    while carrying > 0
       tilted[offset, col] = 'O'
+
+      carrying -= 1
       offset += 1
     end
   end

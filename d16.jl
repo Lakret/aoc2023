@@ -49,9 +49,7 @@ function isinside(beam, grid)
 end
 
 function simulate(grid, start=(CartesianIndex(1, 1), right))
-  energized = falses(size(grid)...)
-  beams = [start]
-  seen = Set([start])
+  energized, beams, seen = falses(size(grid)...), [start], Set([start])
 
   while !isempty(beams)
     beam = pop!(beams)

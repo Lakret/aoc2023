@@ -49,53 +49,36 @@ function isinside(beam, grid)
 end
 
 function simulate(grid, start=(CartesianIndex(1, 1), right))
-  beams = Set([start])
   energized = falses(size(grid)...)
-  prev_beam_states = Set()
+  beams = [start]
+  seen = Set([start])
 
-  while hash(beams) ∉ prev_beam_states
-    push!(prev_beam_states, hash(beams))
+  while !isempty(beams)
+    beam = pop!(beams)
+    push!(seen, beam)
 
-    new_beams = Set()
-    for beam in beams
-      (heading_to, direction) = beam
-      energized[heading_to] = true
-      tile = grid[heading_to]
+    (heading_to, direction) = beam
+    energized[heading_to] = true
+    tile = grid[heading_to]
 
+    new_beams =
       if tile == '.' || (tile == '-' && direction ∈ [left, right]) || (tile == '|' && direction ∈ [up, down])
-        beam = move(beam)
-
-        if isinside(beam, grid)
-          push!(new_beams, beam)
-        end
+        [move(beam)]
       elseif tile == '/' || tile == '\\'
-        beam = reflect(beam, tile) |> move
-
-        if isinside(beam, grid)
-          push!(new_beams, beam)
-        end
+        [reflect(beam, tile) |> move]
       elseif tile == '-'
-        @pipe (
-          move.([(heading_to, left), (heading_to, right)])
-          |> filter(beam -> isinside(beam, grid), _)
-          |> push!(new_beams, _...)
-        )
+        move.([(heading_to, left), (heading_to, right)])
       elseif tile == '|'
-        @pipe (
-          move.([(heading_to, up), (heading_to, down)])
-          |> filter(beam -> isinside(beam, grid), _)
-          |> push!(new_beams, _...)
-        )
+        move.([(heading_to, up), (heading_to, down)])
       end
-    end
 
-    beams = new_beams
+    @pipe filter(beam -> isinside(beam, grid) && beam ∉ seen, new_beams) |> append!(beams, _)
   end
 
-  (beams, energized)
+  energized
 end
 
-p1(grid) = simulate(grid)[2] |> sum
+p1(grid) = simulate(grid) |> sum
 
 function all_starts(grid)
   starts = [(CartesianIndex(1, col), down) for col in 1:size(grid)[2]]
@@ -106,16 +89,7 @@ function all_starts(grid)
   starts
 end
 
-function p2(grid)
-  starts = all_starts(grid)
-  energies = []
-
-  Threads.@threads for start in starts
-    push!(energies, simulate(grid, start)[2] |> sum)
-  end
-
-  energies |> maximum
-end
+p2(grid) = maximum(start -> simulate(grid, start) |> sum, all_starts(grid))
 
 test_grid = parse_input(
   raw"""
@@ -134,18 +108,8 @@ test_grid = parse_input(
 grid = readchomp("inputs/d16") |> parse_input
 
 (_beams, energized) = simulate(test_grid)
-@assert energized[1, :] == [1, 1, 1, 1, 1, 1, 0, 0, 0, 0]
-@assert energized[2, :] == [0, 1, 0, 0, 0, 1, 0, 0, 0, 0]
-@assert energized[3, :] == [0, 1, 0, 0, 0, 1, 1, 1, 1, 1]
-@assert energized[8, :] == [1, 1, 1, 1, 1, 1, 1, 1, 0, 0]
-@assert energized[10, :] == [0, 1, 0, 0, 0, 1, 0, 1, 0, 0]
 @assert p1(test_grid) == 46
 @time @assert @show p1(grid) == 7496
 
-@time @assert p2(test_grid) == 51
+@assert p2(test_grid) == 51
 @time @show p2(grid) == 7932
-
-# with `julia --threads 24`:
-# p2(grid) = 7932
-#  86.304054 seconds (8.18 G allocations: 206.287 GiB, 69.33% gc time, 0.01% compilation time)
-# 7932

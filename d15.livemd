@@ -1,0 +1,202 @@
+<!-- livebook:{"persist_outputs":true} -->
+
+# Day 15
+
+## Solution
+
+```elixir
+"HASH"
+|> String.to_charlist()
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+'HASH'
+```
+
+```elixir
+defmodule D15 do
+  def parse_input(input) when is_binary(input) do
+    input
+    |> String.trim()
+    |> String.replace("\n", "")
+    |> String.split(",")
+  end
+
+  def custom_hash(s) when is_binary(s) do
+    String.to_charlist(s)
+    |> Enum.reduce(0, fn code, acc ->
+      rem((acc + code) * 17, 256)
+    end)
+  end
+
+  def p1(input) when is_list(input), do: input |> Enum.map(&custom_hash/1) |> Enum.sum()
+
+  def reparse(input) when is_list(input) do
+    Enum.map(input, fn ins ->
+      if String.ends_with?(ins, "-") do
+        {:remove, String.trim_trailing(ins, "-")}
+      else
+        [label, focus] = String.split(ins, "=")
+        {:put, label, String.to_integer(focus)}
+      end
+    end)
+  end
+
+  def run(instructions) when is_list(instructions) do
+    Enum.reduce(instructions, %{}, fn ins, boxes ->
+      box_id = custom_hash(elem(ins, 1))
+      box = Map.get(boxes, box_id, [])
+
+      case ins do
+        {:put, label, focal_length} ->
+          case Enum.find_index(box, fn {another_label, _} -> another_label == label end) do
+            nil ->
+              Map.put(boxes, box_id, [{label, focal_length} | box])
+
+            idx when is_number(idx) ->
+              box = List.replace_at(box, idx, {label, focal_length})
+              Map.put(boxes, box_id, box)
+          end
+
+        {:remove, label} ->
+          idx = Enum.find_index(box, fn {another_label, _} -> another_label == label end)
+
+          if !is_nil(idx) do
+            box = List.delete_at(box, idx)
+            Map.put(boxes, box_id, box)
+          else
+            boxes
+          end
+      end
+    end)
+    |> Enum.reject(fn {_k, v} -> length(v) == 0 end)
+    |> Enum.map(fn {k, v} -> {k, Enum.reverse(v)} end)
+    |> Enum.into(%{})
+  end
+
+  def p2(input) do
+    input
+    |> reparse()
+    |> run()
+    |> Enum.map(fn {box_id, lenses} ->
+      Enum.with_index(lenses, 1)
+      |> Enum.map(fn {{_label, focal_length}, pos} -> pos * focal_length * (box_id + 1) end)
+      |> Enum.sum()
+    end)
+    |> Enum.sum()
+  end
+end
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+{:module, D15, <<70, 79, 82, 49, 0, 0, 24, ...>>, {:p2, 1}}
+```
+
+```elixir
+D15.custom_hash("cm")
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+0
+```
+
+```elixir
+test_input = "rn=1,cm-,qp=3,cm=2,qp-,pc=4,ot=9,ab=5,pc-,pc=6,ot=7" |> D15.parse_input()
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+["rn=1", "cm-", "qp=3", "cm=2", "qp-", "pc=4", "ot=9", "ab=5", "pc-", "pc=6", "ot=7"]
+```
+
+```elixir
+test_instructions = D15.reparse(test_input)
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+[
+  {:put, "rn", 1},
+  {:remove, "cm"},
+  {:put, "qp", 3},
+  {:put, "cm", 2},
+  {:remove, "qp"},
+  {:put, "pc", 4},
+  {:put, "ot", 9},
+  {:put, "ab", 5},
+  {:remove, "pc"},
+  {:put, "pc", 6},
+  {:put, "ot", 7}
+]
+```
+
+```elixir
+D15.run(test_instructions)
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+%{0 => [{"rn", 1}, {"cm", 2}], 3 => [{"ot", 7}, {"ab", 5}, {"pc", 6}]}
+```
+
+```elixir
+D15.p2(test_input)
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+145
+```
+
+## Tests
+
+```elixir
+ExUnit.start(autorun: false)
+
+defmodule D08Test do
+  use ExUnit.Case, async: true
+
+  @test_input D15.parse_input("rn=1,cm-,qp=3,cm=2,qp-,pc=4,ot=9,ab=5,pc-,pc=6,ot=7")
+  @input Path.join(__DIR__, "inputs/d15") |> File.read!() |> D15.parse_input()
+
+  test "part 1 works" do
+    assert D15.custom_hash("HASH") == 52
+    assert D15.p1(@test_input) == 1320
+
+    assert D15.p1(@input) == 515_974
+  end
+
+  test "part 2 works" do
+    assert D15.p2(@test_input) == 145
+    assert D15.p2(@input) == 265_894
+  end
+end
+
+ExUnit.run()
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+..
+Finished in 0.00 seconds (0.00s async, 0.00s sync)
+2 tests, 0 failures
+
+Randomized with seed 872467
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+%{excluded: 0, failures: 0, skipped: 0, total: 2}
+```

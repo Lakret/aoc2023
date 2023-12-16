@@ -6,7 +6,7 @@ pub struct Pattern {
     cols: Vec<u32>,
 }
 
-fn parse_input(input: &str) -> Vec<Pattern> {
+pub fn parse_input(input: &str) -> Vec<Pattern> {
     let mut patterns = vec![];
 
     for pattern in input.trim().split("\n\n") {
@@ -99,7 +99,7 @@ fn symmetry_summary(symmetry: (Option<usize>, Option<usize>)) -> usize {
     }
 }
 
-fn p1(patterns: &Vec<Pattern>) -> usize {
+pub fn p1(patterns: &Vec<Pattern>) -> usize {
     patterns.iter().map(|p| symmetry_summary(find_symmetry(p, (None, None)).unwrap())).sum()
 }
 
@@ -131,7 +131,7 @@ fn find_unsmudged_symmetry(pattern: &Pattern) -> Option<(Option<usize>, Option<u
     None
 }
 
-fn p2(patterns: &Vec<Pattern>) -> usize {
+pub fn p2(patterns: &Vec<Pattern>) -> usize {
     // if candidate != prev_answer {
 
     let mut sum = 0;

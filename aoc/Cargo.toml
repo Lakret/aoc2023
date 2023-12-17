@@ -7,3 +7,6 @@ edition = "2021"
 
 [dependencies]
 lazy_static = "*"
+
+[profile.test]
+opt-level = 3

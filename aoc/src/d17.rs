@@ -171,12 +171,14 @@ struct State {
     heat_loss: usize,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 struct Route {
+    parent: Pos,
     prev_directions: Vec<Direction>,
     heat_loss: usize,
 }
 
-fn dijkstra(map: &Map) -> (HashMap<Pos, State>, usize) {
+fn dijkstra(map: &Map) -> (Route, usize) {
     let start = Pos { row: 0, col: 0 };
     let target = Pos { row: map.max_row() - 1, col: map.max_col() - 1 };
     let mut visited: HashSet<Pos> = HashSet::new();
@@ -185,13 +187,16 @@ fn dijkstra(map: &Map) -> (HashMap<Pos, State>, usize) {
     distances.push(Distance { pos: start, heat_loss: 0 });
 
     let mut states = HashMap::new();
-    states.insert(start, State { parent: start, prev_directions: vec![], heat_loss: 0 });
+    states.insert(
+        start,
+        [Route { parent: start, prev_directions: vec![], heat_loss: 0 }].into_iter().collect::<HashSet<_>>(),
+    );
 
-    while let Some(Distance { pos, .. }) = distances.pop() {
-        // if pos == target {
-        //     let heat_loss = states.get(&target).unwrap().heat_loss;
-        //     return (states, heat_loss);
-        // }
+    while let Some(Distance { pos, heat_loss }) = distances.pop() {
+        if pos == target {
+            let target_route = states.get(&target).unwrap().iter().min_by_key(|route| route.heat_loss).unwrap();
+            return (target_route.clone(), heat_loss);
+        }
 
         if visited.contains(&pos) {
             // println!("VISITED {:?}", pos);
@@ -199,43 +204,48 @@ fn dijkstra(map: &Map) -> (HashMap<Pos, State>, usize) {
         }
 
         // cloning state here to avoid keeping it borrowed during modification via entry API below
-        let state = states.get(&pos).unwrap().clone();
-        let heat_loss = state.heat_loss;
+        let routes = states.get(&pos).unwrap().clone();
+        // TODO: simplify routes, trim the ones that are not interesting
         // TODO: keep all possible routes (limited to 3) to the current node with corresponding costs
         // and consider all possible neighbours for each of those with corresponding costs
-        for (neighbour, direction) in map.next_moves(&pos, &state.prev_directions) {
-            if !visited.contains(&neighbour) {
-                let new_heat_loss = heat_loss + map.heat_loss(&neighbour);
+        for route in routes {
+            for (neighbour, direction) in map.next_moves(&pos, &route.prev_directions) {
+                if !visited.contains(&neighbour) {
+                    let new_heat_loss = route.heat_loss + map.heat_loss(&neighbour);
 
-                let mut new_prev_directions = state.prev_directions.clone();
-                new_prev_directions.push(direction);
+                    let mut new_prev_directions = route.prev_directions.clone();
+                    new_prev_directions.push(direction);
 
-                let possible_new_state =
-                    State { parent: pos, prev_directions: new_prev_directions, heat_loss: new_heat_loss };
-                let possible_new_distance = Distance { pos: neighbour, heat_loss: new_heat_loss };
+                    let possible_new_route =
+                        Route { parent: pos, prev_directions: new_prev_directions, heat_loss: new_heat_loss };
+                    let possible_new_distance = Distance { pos: neighbour, heat_loss: new_heat_loss };
 
-                match states.entry(neighbour) {
-                    Entry::Occupied(mut entry) => {
-                        if new_heat_loss <= entry.get().heat_loss {
+                    match states.entry(neighbour) {
+                        Entry::Occupied(mut entry) => {
+                            let neighbour_routes = entry.get_mut();
+                            // if neighbour_routes.iter().any(|r| new_heat_loss <= r.heat_loss) {
+                            neighbour_routes.insert(possible_new_route);
+                            // }
+                            // if new_heat_loss <= entry.get().heat_loss {
                             // dbg!(("optimized", entry.get().heat_loss, new_heat_loss));
-
-                            entry.insert(possible_new_state);
+                            // entry.insert(possible_new_route);
+                            // }
                         }
-                    }
-                    Entry::Vacant(entry) => {
-                        entry.insert(possible_new_state);
-                    }
-                };
+                        Entry::Vacant(entry) => {
+                            entry.insert([possible_new_route].into_iter().collect());
+                        }
+                    };
 
-                distances.push(possible_new_distance);
+                    distances.push(possible_new_distance);
+                }
             }
         }
 
         visited.insert(pos);
     }
 
-    let heat_loss = states.get(&target).unwrap().heat_loss;
-    return (states, heat_loss);
+    let target_route = states.get(&target).unwrap().iter().min_by_key(|route| route.heat_loss).unwrap();
+    return (target_route.clone(), target_route.heat_loss);
 }
 
 fn p1(map: &Map) -> usize {
@@ -270,12 +280,15 @@ mod tests {
         // dbg!(test_map.next_moves(&Pos { row: 1, col: 1 }, &vec![]));
         // dbg!(test_map.next_moves(&Pos { row: 1, col: 1 }, &vec![Right, Right, Right]));
 
-        let (states, heat_loss) = dijkstra(&test_map);
-        let end_state = states.get(&Pos { row: test_map.max_row() - 1, col: test_map.max_col() - 1 }).unwrap();
-        test_map.visualize(&end_state.prev_directions);
-        dbg!(&end_state);
+        let (route, heat_loss) = dijkstra(&test_map);
+        test_map.visualize(&route.prev_directions);
+        dbg!(&route);
         dbg!(heat_loss);
+        let start_time = std::time::Instant::now();
+        assert_eq!(p1(&test_map), 102);
+        dbg!(std::time::Instant::now() - start_time);
 
         let map = parse_input(&fs::read_to_string("../inputs/d17").unwrap());
+        assert_eq!(p1(&map), 0);
     }
 }

@@ -205,15 +205,20 @@ fn dijkstra(map: &Map) -> (Route, usize) {
 
         // cloning state here to avoid keeping it borrowed during modification via entry API below
         let routes = states.get(&pos).unwrap().clone();
-        // TODO: simplify routes, trim the ones that are not interesting
-        // TODO: keep all possible routes (limited to 3) to the current node with corresponding costs
-        // and consider all possible neighbours for each of those with corresponding costs
         for route in routes {
             for (neighbour, direction) in map.next_moves(&pos, &route.prev_directions) {
                 if !visited.contains(&neighbour) {
                     let new_heat_loss = route.heat_loss + map.heat_loss(&neighbour);
 
-                    let mut new_prev_directions = route.prev_directions.clone();
+                    let mut new_prev_directions = if route.prev_directions.len() >= 3 {
+                        route.prev_directions[route.prev_directions.len() - 3..]
+                            .into_iter()
+                            .map(|x| *x)
+                            .collect::<Vec<_>>()
+                    } else {
+                        route.prev_directions.clone()
+                    };
+
                     new_prev_directions.push(direction);
 
                     let possible_new_route =
@@ -281,7 +286,7 @@ mod tests {
         // dbg!(test_map.next_moves(&Pos { row: 1, col: 1 }, &vec![Right, Right, Right]));
 
         let (route, heat_loss) = dijkstra(&test_map);
-        test_map.visualize(&route.prev_directions);
+        // test_map.visualize(&route.prev_directions);
         dbg!(&route);
         dbg!(heat_loss);
         let start_time = std::time::Instant::now();
@@ -289,6 +294,7 @@ mod tests {
         dbg!(std::time::Instant::now() - start_time);
 
         let map = parse_input(&fs::read_to_string("../inputs/d17").unwrap());
+        // 893 is too high
         assert_eq!(p1(&map), 0);
     }
 }

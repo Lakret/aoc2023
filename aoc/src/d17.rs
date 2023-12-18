@@ -1,4 +1,6 @@
-use std::collections::{hash_map::Entry, BinaryHeap, HashMap, HashSet};
+use std::collections::hash_map::Entry;
+use std::collections::{BinaryHeap, HashMap, HashSet};
+use std::hash::Hash;
 
 use Direction::*;
 
@@ -146,10 +148,12 @@ pub fn parse_input(input: &str) -> Map {
     Map { rows }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct Distance {
     pos: Pos,
     heat_loss: usize,
+    direction: Direction,
+    prev_directions: Vec<Direction>,
 }
 
 impl PartialOrd for Distance {
@@ -178,79 +182,89 @@ struct Route {
     heat_loss: usize,
 }
 
-fn dijkstra(map: &Map) -> (Route, usize) {
+fn dijkstra(map: &Map) -> (Vec<usize>, usize) {
     let start = Pos { row: 0, col: 0 };
     let target = Pos { row: map.max_row() - 1, col: map.max_col() - 1 };
-    let mut visited: HashSet<Pos> = HashSet::new();
+    let mut visited: HashSet<(Pos, Direction, usize)> = HashSet::new();
 
-    let mut distances: BinaryHeap<Distance> = BinaryHeap::new();
-    distances.push(Distance { pos: start, heat_loss: 0 });
+    let mut heap: BinaryHeap<Distance> = BinaryHeap::new();
+    heap.push(Distance { pos: start, heat_loss: 0, direction: Right, prev_directions: vec![] });
+    heap.push(Distance { pos: start, heat_loss: 0, direction: Down, prev_directions: vec![] });
 
-    let mut states = HashMap::new();
-    states.insert(
-        start,
-        [Route { parent: start, prev_directions: vec![], heat_loss: 0 }].into_iter().collect::<HashSet<_>>(),
-    );
+    let mut distances_by_direction = HashMap::new();
+    for direction in ALL_DIRECTIONS {
+        distances_by_direction.insert((start, direction), 0);
+    }
 
-    while let Some(Distance { pos, heat_loss }) = distances.pop() {
-        if pos == target {
-            let target_route = states.get(&target).unwrap().iter().min_by_key(|route| route.heat_loss).unwrap();
-            return (target_route.clone(), heat_loss);
-        }
+    while let Some(Distance { pos, heat_loss, direction, prev_directions }) = heap.pop() {
+        let remaining_steps =
+            3 - prev_directions.iter().rev().take(3).take_while(|prev_dir| **prev_dir == direction).count();
 
-        if visited.contains(&pos) {
+        if visited.contains(&(pos, direction, remaining_steps)) {
             // println!("VISITED {:?}", pos);
             continue;
         }
 
+        // let prev_dist = distances_by_direction.get(&(pos, direction));
+        // if prev_dist.is_some() && heat_loss > *prev_dist.unwrap() {
+        //     continue;
+        // }
+
         // cloning state here to avoid keeping it borrowed during modification via entry API below
-        let routes = states.get(&pos).unwrap().clone();
-        for route in routes {
-            for (neighbour, direction) in map.next_moves(&pos, &route.prev_directions) {
-                if !visited.contains(&neighbour) {
-                    let new_heat_loss = route.heat_loss + map.heat_loss(&neighbour);
+        for (neighbour, new_direction) in map.next_moves(&pos, &prev_directions) {
+            let remaining_steps =
+                3 - prev_directions.iter().rev().take(3).take_while(|prev_dir| **prev_dir == new_direction).count();
 
-                    let mut new_prev_directions = if route.prev_directions.len() >= 3 {
-                        route.prev_directions[route.prev_directions.len() - 3..]
-                            .into_iter()
-                            .map(|x| *x)
-                            .collect::<Vec<_>>()
-                    } else {
-                        route.prev_directions.clone()
-                    };
+            if !visited.contains(&(neighbour, new_direction, remaining_steps)) {
+                let new_heat_loss = heat_loss + map.heat_loss(&neighbour);
 
-                    new_prev_directions.push(direction);
+                let mut new_prev_directions = prev_directions.clone();
+                new_prev_directions.push(new_direction);
 
-                    let possible_new_route =
-                        Route { parent: pos, prev_directions: new_prev_directions, heat_loss: new_heat_loss };
-                    let possible_new_distance = Distance { pos: neighbour, heat_loss: new_heat_loss };
+                // let possible_new_route =
+                //     Route { parent: pos, prev_directions: new_prev_directions, heat_loss: new_heat_loss };
+                let possible_new_distance = Distance {
+                    pos: neighbour,
+                    heat_loss: new_heat_loss,
+                    direction: new_direction,
+                    prev_directions: new_prev_directions,
+                };
 
-                    match states.entry(neighbour) {
-                        Entry::Occupied(mut entry) => {
-                            let neighbour_routes = entry.get_mut();
-                            // if neighbour_routes.iter().any(|r| new_heat_loss <= r.heat_loss) {
-                            neighbour_routes.insert(possible_new_route);
-                            // }
-                            // if new_heat_loss <= entry.get().heat_loss {
+                match distances_by_direction.entry((neighbour, new_direction)) {
+                    Entry::Occupied(mut entry) => {
+                        // let neighbour_routes = entry.get_mut();
+                        // if neighbour_routes.iter().any(|r| new_heat_loss <= r.heat_loss) {
+                        // neighbour_routes.insert(possible_new_route);
+                        // distances_by_direction = ;
+                        // }
+                        if new_heat_loss < *entry.get() {
                             // dbg!(("optimized", entry.get().heat_loss, new_heat_loss));
                             // entry.insert(possible_new_route);
-                            // }
+                            entry.insert(new_heat_loss);
                         }
-                        Entry::Vacant(entry) => {
-                            entry.insert([possible_new_route].into_iter().collect());
-                        }
-                    };
+                    }
+                    Entry::Vacant(entry) => {
+                        entry.insert(new_heat_loss);
+                    }
+                };
 
-                    distances.push(possible_new_distance);
-                }
+                heap.push(possible_new_distance);
             }
         }
 
-        visited.insert(pos);
+        let remaining_steps =
+            3 - prev_directions.iter().rev().take(3).take_while(|prev_dir| **prev_dir == direction).count();
+        visited.insert((pos, direction, remaining_steps));
     }
 
-    let target_route = states.get(&target).unwrap().iter().min_by_key(|route| route.heat_loss).unwrap();
-    return (target_route.clone(), target_route.heat_loss);
+    // dbg!(&distances_by_direction);
+    let mut target_distances = vec![];
+    for direction in ALL_DIRECTIONS {
+        if let Some(d) = distances_by_direction.get(&(target, direction)) {
+            target_distances.push(*d);
+        }
+    }
+    return (target_distances.clone(), *target_distances.iter().min().unwrap());
 }
 
 fn p1(map: &Map) -> usize {
@@ -285,16 +299,15 @@ mod tests {
         // dbg!(test_map.next_moves(&Pos { row: 1, col: 1 }, &vec![]));
         // dbg!(test_map.next_moves(&Pos { row: 1, col: 1 }, &vec![Right, Right, Right]));
 
-        let (route, heat_loss) = dijkstra(&test_map);
-        // test_map.visualize(&route.prev_directions);
-        dbg!(&route);
+        let (target_distances, heat_loss) = dijkstra(&test_map);
+        // test_map.visualize(states.prev_directions);
+        dbg!(&target_distances);
         dbg!(heat_loss);
         let start_time = std::time::Instant::now();
         assert_eq!(p1(&test_map), 102);
         dbg!(std::time::Instant::now() - start_time);
 
         let map = parse_input(&fs::read_to_string("../inputs/d17").unwrap());
-        // 893 is too high
-        assert_eq!(p1(&map), 0);
+        assert_eq!(p1(&map), 886);
     }
 }

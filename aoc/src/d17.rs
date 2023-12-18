@@ -109,20 +109,17 @@ impl Map {
             })
             .collect()
     }
+}
 
-    pub fn visualize(&self, directions: &Vec<Direction>) {
-        let mut rows: Vec<Vec<String>> = self.rows.iter().map(|r| r.iter().map(|d| d.to_string()).collect()).collect();
+pub fn parse_input(input: &str) -> Map {
+    let mut rows = vec![];
 
-        let mut pos = Pos { row: 0, col: 0 };
-        for direction in directions {
-            pos = pos.walk(*direction).unwrap();
-            rows[pos.row][pos.col] = direction.to_string();
-        }
-
-        for row in rows {
-            println!("{}", row.concat());
-        }
+    for row in input.trim().split("\n") {
+        let row = row.chars().map(|ch| ch.to_digit(10).unwrap() as usize).collect();
+        rows.push(row);
     }
+
+    Map { rows }
 }
 
 fn p1_allowed_directions(direction: &Direction, steps: usize) -> Vec<Direction> {
@@ -145,17 +142,6 @@ fn p2_allowed_directions(direction: &Direction, steps: usize) -> Vec<Direction> 
     }
 }
 
-pub fn parse_input(input: &str) -> Map {
-    let mut rows = vec![];
-
-    for row in input.trim().split("\n") {
-        let row = row.chars().map(|ch| ch.to_digit(10).unwrap() as usize).collect();
-        rows.push(row);
-    }
-
-    Map { rows }
-}
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct State {
     pos: Pos,
@@ -176,7 +162,7 @@ impl Ord for State {
     }
 }
 
-pub fn dijkstra(map: &Map, p2: bool) -> (Vec<usize>, usize) {
+pub fn dijkstra(map: &Map, p2: bool) -> usize {
     let start = Pos { row: 0, col: 0 };
     let target = Pos { row: map.max_row() - 1, col: map.max_col() - 1 };
     // we can arrive to each block facing various directions and having made 0 to 3 steps in this direction
@@ -184,9 +170,9 @@ pub fn dijkstra(map: &Map, p2: bool) -> (Vec<usize>, usize) {
     // instead of just position to figure out which states we have already considered
     let mut visited: HashSet<(Pos, Direction, usize)> = HashSet::new();
 
-    let mut heap: BinaryHeap<State> = BinaryHeap::new();
-    heap.push(State { pos: start, heat_loss: 0, direction: Right, steps: 0 });
-    heap.push(State { pos: start, heat_loss: 0, direction: Down, steps: 0 });
+    let mut queue = BinaryHeap::new();
+    queue.push(State { pos: start, heat_loss: 0, direction: Right, steps: 0 });
+    queue.push(State { pos: start, heat_loss: 0, direction: Down, steps: 0 });
 
     // in part 2, only state with >= 4 steps in a direction can count for reaching target,
     // so we need to remember the number of steps and direction to differentiate between different states
@@ -195,7 +181,7 @@ pub fn dijkstra(map: &Map, p2: bool) -> (Vec<usize>, usize) {
         heat_losses.insert((start, direction, 0), 0);
     }
 
-    while let Some(State { pos, heat_loss, direction, steps }) = heap.pop() {
+    while let Some(State { pos, heat_loss, direction, steps }) = queue.pop() {
         for (neighbour, new_direction) in map.next_moves(&pos, &direction, steps + 1, p2) {
             let steps = if new_direction == direction { steps + 1 } else { 0 };
 
@@ -203,16 +189,18 @@ pub fn dijkstra(map: &Map, p2: bool) -> (Vec<usize>, usize) {
                 let new_heat_loss = heat_loss + map.heat_loss(&neighbour);
                 let new_state = State { pos: neighbour, heat_loss: new_heat_loss, direction: new_direction, steps };
 
+                // check if we found a better solution for (pos, direction, steps) and if so
+                // update the heat_losses map and push this new state in the queue
                 match heat_losses.entry((neighbour, new_direction, steps)) {
                     Entry::Occupied(mut entry) => {
                         if new_heat_loss < *entry.get() {
                             entry.insert(new_heat_loss);
-                            heap.push(new_state);
+                            queue.push(new_state);
                         }
                     }
                     Entry::Vacant(entry) => {
                         entry.insert(new_heat_loss);
-                        heap.push(new_state);
+                        queue.push(new_state);
                     }
                 };
             }
@@ -221,23 +209,23 @@ pub fn dijkstra(map: &Map, p2: bool) -> (Vec<usize>, usize) {
         visited.insert((pos, direction, steps));
     }
 
-    let mut target_distances = vec![];
-    for direction in ALL_DIRECTIONS {
-        for steps in (if p2 { 3 } else { 0 })..=10 {
-            if let Some(d) = heat_losses.get(&(target, direction, steps)) {
-                target_distances.push(*d);
-            }
-        }
-    }
-    return (target_distances.clone(), *target_distances.iter().min().unwrap());
+    ALL_DIRECTIONS
+        .iter()
+        .flat_map(|direction| {
+            let min_steps = if p2 { 3 } else { 0 };
+            (min_steps..=10).into_iter().flat_map(|steps| heat_losses.get(&(target, *direction, steps)))
+        })
+        .min()
+        .map(|x| *x)
+        .unwrap()
 }
 
-fn p1(map: &Map) -> usize {
-    dijkstra(map, false).1
+pub fn p1(map: &Map) -> usize {
+    dijkstra(map, false)
 }
 
-fn p2(map: &Map) -> usize {
-    dijkstra(map, true).1
+pub fn p2(map: &Map) -> usize {
+    dijkstra(map, true)
 }
 
 #[cfg(test)]

@@ -23,6 +23,14 @@ impl Direction {
             Down => Up,
         }
     }
+
+    pub fn turns(&self) -> [Direction; 2] {
+        if *self == Left || *self == Right {
+            [Up, Down]
+        } else {
+            [Left, Right]
+        }
+    }
 }
 
 impl ToString for Direction {
@@ -84,41 +92,12 @@ impl Map {
         self.rows[pos.row][pos.col]
     }
 
-    pub fn next_moves(&self, pos: &Pos, direction: &Direction, steps: usize) -> Vec<(Pos, Direction)> {
-        let mut banned_directions = vec![direction.opposite()];
-        if steps == 3 {
-            banned_directions.push(*direction);
-        }
-        let banned_directions = banned_directions.into_iter().collect::<HashSet<_>>();
+    pub fn next_moves(&self, pos: &Pos, direction: &Direction, steps: usize, p2: bool) -> Vec<(Pos, Direction)> {
+        let allowed_directions =
+            if p2 { p2_allowed_directions(direction, steps) } else { p1_allowed_directions(direction, steps) };
 
-        ALL_DIRECTIONS
+        allowed_directions
             .into_iter()
-            .filter(|d| !banned_directions.contains(d))
-            .filter_map(|d| {
-                pos.walk(d).and_then(|new_pos| {
-                    if new_pos.row < self.max_row() && new_pos.col < self.max_col() {
-                        Some((new_pos, d))
-                    } else {
-                        None
-                    }
-                })
-            })
-            .collect()
-    }
-
-    pub fn next_moves2(&self, pos: &Pos, direction: &Direction, steps: usize) -> Vec<(Pos, Direction)> {
-        let banned_directions = if steps == 10 {
-            vec![direction.opposite(), *direction]
-        } else if steps < 4 {
-            ALL_DIRECTIONS.into_iter().filter(|d| d != direction).collect::<Vec<_>>()
-        } else {
-            vec![direction.opposite()]
-        };
-        let banned_directions = banned_directions.into_iter().collect::<HashSet<_>>();
-
-        ALL_DIRECTIONS
-            .into_iter()
-            .filter(|d| !banned_directions.contains(d))
             .filter_map(|d| {
                 pos.walk(d).and_then(|new_pos| {
                     if new_pos.row < self.max_row() && new_pos.col < self.max_col() {
@@ -143,6 +122,26 @@ impl Map {
         for row in rows {
             println!("{}", row.concat());
         }
+    }
+}
+
+fn p1_allowed_directions(direction: &Direction, steps: usize) -> Vec<Direction> {
+    if steps == 3 {
+        direction.turns().to_vec()
+    } else {
+        let turns = direction.turns();
+        vec![*direction, turns[0], turns[1]]
+    }
+}
+
+fn p2_allowed_directions(direction: &Direction, steps: usize) -> Vec<Direction> {
+    if steps == 10 {
+        direction.turns().to_vec()
+    } else if steps < 4 {
+        vec![*direction]
+    } else {
+        let turns = direction.turns();
+        vec![*direction, turns[0], turns[1]]
     }
 }
 
@@ -197,8 +196,7 @@ pub fn dijkstra(map: &Map, p2: bool) -> (Vec<usize>, usize) {
     }
 
     while let Some(State { pos, heat_loss, direction, steps }) = heap.pop() {
-        let next_moves_fun = if p2 { Map::next_moves2 } else { Map::next_moves };
-        for (neighbour, new_direction) in next_moves_fun(map, &pos, &direction, steps + 1) {
+        for (neighbour, new_direction) in map.next_moves(&pos, &direction, steps + 1, p2) {
             let steps = if new_direction == direction { steps + 1 } else { 0 };
 
             if !visited.contains(&(neighbour, new_direction, steps)) {

@@ -84,8 +84,12 @@ impl Map {
         self.rows[pos.row][pos.col]
     }
 
-    pub fn next_moves(&self, pos: &Pos, prev_directions: &Vec<Direction>) -> Vec<(Pos, Direction)> {
-        let banned_directions = get_banned_directions(prev_directions);
+    pub fn next_moves(&self, pos: &Pos, direction: &Direction, steps: usize) -> Vec<(Pos, Direction)> {
+        let mut banned_directions = vec![direction.opposite()];
+        if steps == 3 {
+            banned_directions.push(*direction);
+        }
+        let banned_directions = banned_directions.into_iter().collect::<HashSet<_>>();
 
         ALL_DIRECTIONS
             .into_iter()
@@ -117,26 +121,6 @@ impl Map {
     }
 }
 
-fn get_banned_directions(prev_directions: &Vec<Direction>) -> HashSet<Direction> {
-    if prev_directions.is_empty() {
-        HashSet::new()
-    } else {
-        let mut banned = HashSet::new();
-        banned.insert(prev_directions.last().unwrap().opposite());
-
-        if prev_directions.len() >= 3 {
-            let last_three_directions = prev_directions.iter().rev().take(3).collect::<HashSet<_>>();
-            if last_three_directions.len() == 1 {
-                for d in last_three_directions.into_iter() {
-                    banned.insert(*d);
-                }
-            }
-        }
-
-        banned
-    }
-}
-
 pub fn parse_input(input: &str) -> Map {
     let mut rows = vec![];
 
@@ -153,7 +137,7 @@ struct State {
     pos: Pos,
     heat_loss: usize,
     direction: Direction,
-    prev_directions: Vec<Direction>,
+    steps: usize,
 }
 
 impl PartialOrd for State {
@@ -171,42 +155,31 @@ impl Ord for State {
 pub fn dijkstra(map: &Map) -> (Vec<usize>, usize) {
     let start = Pos { row: 0, col: 0 };
     let target = Pos { row: map.max_row() - 1, col: map.max_col() - 1 };
+    // we can arrive to each block facing various directions and having made 0 to 3 steps in this direction
+    // those are possible states we need to examine, so we a key of (position, direction, remaining_steps)
+    // instead of just position to figure out which states we have already considered
     let mut visited: HashSet<(Pos, Direction, usize)> = HashSet::new();
 
     let mut heap: BinaryHeap<State> = BinaryHeap::new();
-    heap.push(State { pos: start, heat_loss: 0, direction: Right, prev_directions: vec![] });
-    heap.push(State { pos: start, heat_loss: 0, direction: Down, prev_directions: vec![] });
+    heap.push(State { pos: start, heat_loss: 0, direction: Right, steps: 0 });
+    heap.push(State { pos: start, heat_loss: 0, direction: Down, steps: 0 });
 
     let mut heat_losses = HashMap::new();
     for direction in ALL_DIRECTIONS {
         heat_losses.insert((start, direction), 0);
     }
 
-    while let Some(State { pos, heat_loss, direction, prev_directions }) = heap.pop() {
-        let remaining_steps =
-            3 - prev_directions.iter().rev().take(3).take_while(|prev_dir| **prev_dir == direction).count();
-
-        if visited.contains(&(pos, direction, remaining_steps)) {
+    while let Some(State { pos, heat_loss, direction, steps }) = heap.pop() {
+        if visited.contains(&(pos, direction, steps)) {
             continue;
         }
 
-        // cloning state here to avoid keeping it borrowed during modification via entry API below
-        for (neighbour, new_direction) in map.next_moves(&pos, &prev_directions) {
-            let remaining_steps =
-                3 - prev_directions.iter().rev().take(3).take_while(|prev_dir| **prev_dir == new_direction).count();
+        for (neighbour, new_direction) in map.next_moves(&pos, &direction, steps + 1) {
+            let steps = if new_direction == direction { steps + 1 } else { 0 };
 
-            if !visited.contains(&(neighbour, new_direction, remaining_steps)) {
+            if !visited.contains(&(neighbour, new_direction, steps)) {
                 let new_heat_loss = heat_loss + map.heat_loss(&neighbour);
-
-                let mut new_prev_directions = prev_directions.clone();
-                new_prev_directions.push(new_direction);
-
-                let new_state = State {
-                    pos: neighbour,
-                    heat_loss: new_heat_loss,
-                    direction: new_direction,
-                    prev_directions: new_prev_directions,
-                };
+                let new_state = State { pos: neighbour, heat_loss: new_heat_loss, direction: new_direction, steps };
 
                 match heat_losses.entry((neighbour, new_direction)) {
                     Entry::Occupied(mut entry) => {
@@ -223,9 +196,7 @@ pub fn dijkstra(map: &Map) -> (Vec<usize>, usize) {
             }
         }
 
-        let remaining_steps =
-            3 - prev_directions.iter().rev().take(3).take_while(|prev_dir| **prev_dir == direction).count();
-        visited.insert((pos, direction, remaining_steps));
+        visited.insert((pos, direction, steps));
     }
 
     let mut target_distances = vec![];

@@ -189,16 +189,14 @@ pub fn dijkstra(map: &Map, p2: bool) -> (Vec<usize>, usize) {
     heap.push(State { pos: start, heat_loss: 0, direction: Right, steps: 0 });
     heap.push(State { pos: start, heat_loss: 0, direction: Down, steps: 0 });
 
+    // in part 2, only state with >= 4 steps in a direction can count for reaching target,
+    // so we need to remember the number of steps and direction to differentiate between different states
     let mut heat_losses = HashMap::new();
     for direction in ALL_DIRECTIONS {
         heat_losses.insert((start, direction, 0), 0);
     }
 
     while let Some(State { pos, heat_loss, direction, steps }) = heap.pop() {
-        if visited.contains(&(pos, direction, steps)) {
-            continue;
-        }
-
         let next_moves_fun = if p2 { Map::next_moves2 } else { Map::next_moves };
         for (neighbour, new_direction) in next_moves_fun(map, &pos, &direction, steps + 1) {
             let steps = if new_direction == direction { steps + 1 } else { 0 };
@@ -209,19 +207,16 @@ pub fn dijkstra(map: &Map, p2: bool) -> (Vec<usize>, usize) {
 
                 match heat_losses.entry((neighbour, new_direction, steps)) {
                     Entry::Occupied(mut entry) => {
-                        // in part 2 crucible cannot stop at the end in less than 4 steps of movement in one direction
-                        // so we don't update the heat loss values for that cell if that condition doesn't hold
-
-                        if new_heat_loss < *entry.get() && (!p2 || neighbour != target || steps >= 4) {
+                        if new_heat_loss < *entry.get() {
                             entry.insert(new_heat_loss);
+                            heap.push(new_state);
                         }
                     }
                     Entry::Vacant(entry) => {
                         entry.insert(new_heat_loss);
+                        heap.push(new_state);
                     }
                 };
-
-                heap.push(new_state);
             }
         }
 
@@ -230,7 +225,7 @@ pub fn dijkstra(map: &Map, p2: bool) -> (Vec<usize>, usize) {
 
     let mut target_distances = vec![];
     for direction in ALL_DIRECTIONS {
-        for steps in (if p2 { 3 } else { 0 })..10 {
+        for steps in (if p2 { 3 } else { 0 })..=10 {
             if let Some(d) = heat_losses.get(&(target, direction, steps)) {
                 target_distances.push(*d);
             }

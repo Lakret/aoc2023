@@ -106,6 +106,31 @@ impl Map {
             .collect()
     }
 
+    pub fn next_moves2(&self, pos: &Pos, direction: &Direction, steps: usize) -> Vec<(Pos, Direction)> {
+        let banned_directions = if steps == 10 {
+            vec![direction.opposite(), *direction]
+        } else if steps < 4 {
+            ALL_DIRECTIONS.into_iter().filter(|d| d != direction).collect::<Vec<_>>()
+        } else {
+            vec![direction.opposite()]
+        };
+        let banned_directions = banned_directions.into_iter().collect::<HashSet<_>>();
+
+        ALL_DIRECTIONS
+            .into_iter()
+            .filter(|d| !banned_directions.contains(d))
+            .filter_map(|d| {
+                pos.walk(d).and_then(|new_pos| {
+                    if new_pos.row < self.max_row() && new_pos.col < self.max_col() {
+                        Some((new_pos, d))
+                    } else {
+                        None
+                    }
+                })
+            })
+            .collect()
+    }
+
     pub fn visualize(&self, directions: &Vec<Direction>) {
         let mut rows: Vec<Vec<String>> = self.rows.iter().map(|r| r.iter().map(|d| d.to_string()).collect()).collect();
 
@@ -152,7 +177,7 @@ impl Ord for State {
     }
 }
 
-pub fn dijkstra(map: &Map) -> (Vec<usize>, usize) {
+pub fn dijkstra(map: &Map, p2: bool) -> (Vec<usize>, usize) {
     let start = Pos { row: 0, col: 0 };
     let target = Pos { row: map.max_row() - 1, col: map.max_col() - 1 };
     // we can arrive to each block facing various directions and having made 0 to 3 steps in this direction
@@ -166,7 +191,7 @@ pub fn dijkstra(map: &Map) -> (Vec<usize>, usize) {
 
     let mut heat_losses = HashMap::new();
     for direction in ALL_DIRECTIONS {
-        heat_losses.insert((start, direction), 0);
+        heat_losses.insert((start, direction, 0), 0);
     }
 
     while let Some(State { pos, heat_loss, direction, steps }) = heap.pop() {
@@ -174,16 +199,20 @@ pub fn dijkstra(map: &Map) -> (Vec<usize>, usize) {
             continue;
         }
 
-        for (neighbour, new_direction) in map.next_moves(&pos, &direction, steps + 1) {
+        let next_moves_fun = if p2 { Map::next_moves2 } else { Map::next_moves };
+        for (neighbour, new_direction) in next_moves_fun(map, &pos, &direction, steps + 1) {
             let steps = if new_direction == direction { steps + 1 } else { 0 };
 
             if !visited.contains(&(neighbour, new_direction, steps)) {
                 let new_heat_loss = heat_loss + map.heat_loss(&neighbour);
                 let new_state = State { pos: neighbour, heat_loss: new_heat_loss, direction: new_direction, steps };
 
-                match heat_losses.entry((neighbour, new_direction)) {
+                match heat_losses.entry((neighbour, new_direction, steps)) {
                     Entry::Occupied(mut entry) => {
-                        if new_heat_loss < *entry.get() {
+                        // in part 2 crucible cannot stop at the end in less than 4 steps of movement in one direction
+                        // so we don't update the heat loss values for that cell if that condition doesn't hold
+
+                        if new_heat_loss < *entry.get() && (!p2 || neighbour != target || steps >= 4) {
                             entry.insert(new_heat_loss);
                         }
                     }
@@ -201,15 +230,21 @@ pub fn dijkstra(map: &Map) -> (Vec<usize>, usize) {
 
     let mut target_distances = vec![];
     for direction in ALL_DIRECTIONS {
-        if let Some(d) = heat_losses.get(&(target, direction)) {
-            target_distances.push(*d);
+        for steps in (if p2 { 3 } else { 0 })..10 {
+            if let Some(d) = heat_losses.get(&(target, direction, steps)) {
+                target_distances.push(*d);
+            }
         }
     }
     return (target_distances.clone(), *target_distances.iter().min().unwrap());
 }
 
 fn p1(map: &Map) -> usize {
-    dijkstra(map).1
+    dijkstra(map, false).1
+}
+
+fn p2(map: &Map) -> usize {
+    dijkstra(map, true).1
 }
 
 #[cfg(test)]
@@ -233,6 +268,13 @@ mod tests {
 4322674655533
 ";
 
+    static TEST_INPUT2: &str = "111111111111
+999999999991
+999999999991
+999999999991
+999999999991
+";
+
     #[test]
     fn p1_test() {
         let test_map = parse_input(TEST_INPUT);
@@ -241,6 +283,20 @@ mod tests {
         let map = parse_input(&fs::read_to_string("../inputs/d17").unwrap());
         let start_time = std::time::Instant::now();
         assert_eq!(p1(&map), 886);
+        dbg!(std::time::Instant::now() - start_time);
+    }
+
+    #[test]
+    fn p2_test() {
+        let test_map = parse_input(TEST_INPUT);
+        assert_eq!(p2(&test_map), 94);
+
+        let test_map2 = parse_input(TEST_INPUT2);
+        assert_eq!(p2(&test_map2), 71);
+
+        let map = parse_input(&fs::read_to_string("../inputs/d17").unwrap());
+        let start_time = std::time::Instant::now();
+        assert_eq!(p2(&map), 0);
         dbg!(std::time::Instant::now() - start_time);
     }
 }

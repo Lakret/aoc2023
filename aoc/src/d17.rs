@@ -296,7 +296,7 @@ mod tests {
 
         let map = parse_input(&fs::read_to_string("../inputs/d17").unwrap());
         let start_time = std::time::Instant::now();
-        assert_eq!(p2(&map), 0);
+        assert_eq!(p2(&map), 1055);
         dbg!(std::time::Instant::now() - start_time);
     }
 }

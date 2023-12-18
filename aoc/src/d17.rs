@@ -5,7 +5,7 @@ use std::hash::Hash;
 use Direction::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-enum Direction {
+pub enum Direction {
     Left,
     Right,
     Up,
@@ -15,7 +15,7 @@ enum Direction {
 static ALL_DIRECTIONS: [Direction; 4] = [Left, Right, Up, Down];
 
 impl Direction {
-    fn opposite(&self) -> Direction {
+    pub fn opposite(&self) -> Direction {
         match self {
             Left => Right,
             Right => Left,
@@ -38,13 +38,13 @@ impl ToString for Direction {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-struct Pos {
+pub struct Pos {
     row: usize,
     col: usize,
 }
 
 impl Pos {
-    fn walk(&self, direction: Direction) -> Option<Pos> {
+    pub fn walk(&self, direction: Direction) -> Option<Pos> {
         match direction {
             Left => {
                 if self.col >= 1 {
@@ -72,19 +72,19 @@ pub struct Map {
 }
 
 impl Map {
-    fn max_row(&self) -> usize {
+    pub fn max_row(&self) -> usize {
         self.rows.len()
     }
 
-    fn max_col(&self) -> usize {
+    pub fn max_col(&self) -> usize {
         self.rows[0].len()
     }
 
-    fn heat_loss(&self, pos: &Pos) -> usize {
+    pub fn heat_loss(&self, pos: &Pos) -> usize {
         self.rows[pos.row][pos.col]
     }
 
-    fn next_moves(&self, pos: &Pos, prev_directions: &Vec<Direction>) -> Vec<(Pos, Direction)> {
+    pub fn next_moves(&self, pos: &Pos, prev_directions: &Vec<Direction>) -> Vec<(Pos, Direction)> {
         let banned_directions = get_banned_directions(prev_directions);
 
         ALL_DIRECTIONS
@@ -102,7 +102,7 @@ impl Map {
             .collect()
     }
 
-    fn visualize(&self, directions: &Vec<Direction>) {
+    pub fn visualize(&self, directions: &Vec<Direction>) {
         let mut rows: Vec<Vec<String>> = self.rows.iter().map(|r| r.iter().map(|d| d.to_string()).collect()).collect();
 
         let mut pos = Pos { row: 0, col: 0 };
@@ -149,66 +149,46 @@ pub fn parse_input(input: &str) -> Map {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-struct Distance {
+struct State {
     pos: Pos,
     heat_loss: usize,
     direction: Direction,
     prev_directions: Vec<Direction>,
 }
 
-impl PartialOrd for Distance {
+impl PartialOrd for State {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         self.heat_loss.partial_cmp(&other.heat_loss).map(|ordering| ordering.reverse())
     }
 }
 
-impl Ord for Distance {
+impl Ord for State {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.partial_cmp(other).unwrap()
     }
 }
 
-#[derive(Debug, Clone)]
-struct State {
-    parent: Pos,
-    prev_directions: Vec<Direction>,
-    heat_loss: usize,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-struct Route {
-    parent: Pos,
-    prev_directions: Vec<Direction>,
-    heat_loss: usize,
-}
-
-fn dijkstra(map: &Map) -> (Vec<usize>, usize) {
+pub fn dijkstra(map: &Map) -> (Vec<usize>, usize) {
     let start = Pos { row: 0, col: 0 };
     let target = Pos { row: map.max_row() - 1, col: map.max_col() - 1 };
     let mut visited: HashSet<(Pos, Direction, usize)> = HashSet::new();
 
-    let mut heap: BinaryHeap<Distance> = BinaryHeap::new();
-    heap.push(Distance { pos: start, heat_loss: 0, direction: Right, prev_directions: vec![] });
-    heap.push(Distance { pos: start, heat_loss: 0, direction: Down, prev_directions: vec![] });
+    let mut heap: BinaryHeap<State> = BinaryHeap::new();
+    heap.push(State { pos: start, heat_loss: 0, direction: Right, prev_directions: vec![] });
+    heap.push(State { pos: start, heat_loss: 0, direction: Down, prev_directions: vec![] });
 
-    let mut distances_by_direction = HashMap::new();
+    let mut heat_losses = HashMap::new();
     for direction in ALL_DIRECTIONS {
-        distances_by_direction.insert((start, direction), 0);
+        heat_losses.insert((start, direction), 0);
     }
 
-    while let Some(Distance { pos, heat_loss, direction, prev_directions }) = heap.pop() {
+    while let Some(State { pos, heat_loss, direction, prev_directions }) = heap.pop() {
         let remaining_steps =
             3 - prev_directions.iter().rev().take(3).take_while(|prev_dir| **prev_dir == direction).count();
 
         if visited.contains(&(pos, direction, remaining_steps)) {
-            // println!("VISITED {:?}", pos);
             continue;
         }
-
-        // let prev_dist = distances_by_direction.get(&(pos, direction));
-        // if prev_dist.is_some() && heat_loss > *prev_dist.unwrap() {
-        //     continue;
-        // }
 
         // cloning state here to avoid keeping it borrowed during modification via entry API below
         for (neighbour, new_direction) in map.next_moves(&pos, &prev_directions) {
@@ -221,25 +201,16 @@ fn dijkstra(map: &Map) -> (Vec<usize>, usize) {
                 let mut new_prev_directions = prev_directions.clone();
                 new_prev_directions.push(new_direction);
 
-                // let possible_new_route =
-                //     Route { parent: pos, prev_directions: new_prev_directions, heat_loss: new_heat_loss };
-                let possible_new_distance = Distance {
+                let new_state = State {
                     pos: neighbour,
                     heat_loss: new_heat_loss,
                     direction: new_direction,
                     prev_directions: new_prev_directions,
                 };
 
-                match distances_by_direction.entry((neighbour, new_direction)) {
+                match heat_losses.entry((neighbour, new_direction)) {
                     Entry::Occupied(mut entry) => {
-                        // let neighbour_routes = entry.get_mut();
-                        // if neighbour_routes.iter().any(|r| new_heat_loss <= r.heat_loss) {
-                        // neighbour_routes.insert(possible_new_route);
-                        // distances_by_direction = ;
-                        // }
                         if new_heat_loss < *entry.get() {
-                            // dbg!(("optimized", entry.get().heat_loss, new_heat_loss));
-                            // entry.insert(possible_new_route);
                             entry.insert(new_heat_loss);
                         }
                     }
@@ -248,7 +219,7 @@ fn dijkstra(map: &Map) -> (Vec<usize>, usize) {
                     }
                 };
 
-                heap.push(possible_new_distance);
+                heap.push(new_state);
             }
         }
 
@@ -257,10 +228,9 @@ fn dijkstra(map: &Map) -> (Vec<usize>, usize) {
         visited.insert((pos, direction, remaining_steps));
     }
 
-    // dbg!(&distances_by_direction);
     let mut target_distances = vec![];
     for direction in ALL_DIRECTIONS {
-        if let Some(d) = distances_by_direction.get(&(target, direction)) {
+        if let Some(d) = heat_losses.get(&(target, direction)) {
             target_distances.push(*d);
         }
     }
@@ -295,19 +265,11 @@ mod tests {
     #[test]
     fn p1_test() {
         let test_map = parse_input(TEST_INPUT);
-        // dbg!(test_map.next_moves(&Pos { row: 0, col: 0 }, &vec![]));
-        // dbg!(test_map.next_moves(&Pos { row: 1, col: 1 }, &vec![]));
-        // dbg!(test_map.next_moves(&Pos { row: 1, col: 1 }, &vec![Right, Right, Right]));
-
-        let (target_distances, heat_loss) = dijkstra(&test_map);
-        // test_map.visualize(states.prev_directions);
-        dbg!(&target_distances);
-        dbg!(heat_loss);
-        let start_time = std::time::Instant::now();
         assert_eq!(p1(&test_map), 102);
-        dbg!(std::time::Instant::now() - start_time);
 
         let map = parse_input(&fs::read_to_string("../inputs/d17").unwrap());
+        let start_time = std::time::Instant::now();
         assert_eq!(p1(&map), 886);
+        dbg!(std::time::Instant::now() - start_time);
     }
 }

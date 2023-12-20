@@ -54,8 +54,39 @@ defmodule D19 do
 
   def rating(part) when is_map(part), do: Map.values(part) |> Enum.sum()
 
-  def run(part, workflow) when is_map(part) and is_map(workflow) do
-    # TODO:
+  def run(part, workflows) when is_map(part) and is_map(workflows) do
+    run(part, workflows, "in")
+  end
+
+  def run(_part, _workflows, "A"), do: "A"
+  def run(_part, _workflows, "R"), do: "R"
+
+  def run(part, workflows, workflow) do
+    current = workflows[workflow]
+
+    matching_condition =
+      Enum.find(current.conds, fn condition ->
+        part_value = part[condition.cat]
+
+        case condition.op do
+          ">" -> part_value > condition.val
+          "<" -> part_value < condition.val
+        end
+      end)
+
+    if is_nil(matching_condition) do
+      run(part, workflows, current.otherwise)
+    else
+      run(part, workflows, matching_condition.send_to)
+    end
+  end
+
+  def p1(input) do
+    Enum.filter(input.parts, fn part ->
+      run(part, input.workflows) == "A"
+    end)
+    |> Enum.map(&rating/1)
+    |> Enum.sum()
   end
 end
 ```
@@ -63,7 +94,7 @@ end
 <!-- livebook:{"output":true} -->
 
 ```
-{:module, D19, <<70, 79, 82, 49, 0, 0, 17, ...>>, {:run, 2}}
+{:module, D19, <<70, 79, 82, 49, 0, 0, 27, ...>>, {:p1, 1}}
 ```
 
 ```elixir
@@ -421,44 +452,80 @@ input = D19.parse_input(input)
 ```
 
 ```elixir
-test_input.parts |> Enum.map(&D19.rating/1)
+D19.p1(test_input) == 19114
 ```
 
 <!-- livebook:{"output":true} -->
 
 ```
-[7540, 4286, 4623, 4557, 6951]
+true
+```
+
+```elixir
+D19.p1(input)
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+399284
 ```
 
 ## Tests
 
 ```elixir
-# ExUnit.start(autorun: false)
+ExUnit.start(autorun: false)
 
-# defmodule D08Test do
-#   use ExUnit.Case, async: true
+defmodule D08Test do
+  use ExUnit.Case, async: true
 
-#   @test_input D15.parse_input("rn=1,cm-,qp=3,cm=2,qp-,pc=4,ot=9,ab=5,pc-,pc=6,ot=7")
-#   @input Path.join(__DIR__, "inputs/d15") |> File.read!() |> D15.parse_input()
+  @test_input D19.parse_input("""
+              px{a<2006:qkq,m>2090:A,rfg}
+              pv{a>1716:R,A}
+              lnx{m>1548:A,A}
+              rfg{s<537:gd,x>2440:R,A}
+              qs{s>3448:A,lnx}
+              qkq{x<1416:A,crn}
+              crn{x>2662:A,R}
+              in{s<1351:px,qqz}
+              qqz{s>2770:qs,m<1801:hdj,R}
+              gd{a>3333:R,R}
+              hdj{m>838:A,pv}
 
-#   test "part 1 works" do
-#     assert D15.custom_hash("HASH") == 52
-#     assert D15.p1(@test_input) == 1320
+              {x=787,m=2655,a=1222,s=2876}
+              {x=1679,m=44,a=2067,s=496}
+              {x=2036,m=264,a=79,s=2244}
+              {x=2461,m=1339,a=466,s=291}
+              {x=2127,m=1623,a=2188,s=1013}   
+              """)
+  @input Path.join(__DIR__, "inputs/d19") |> File.read!() |> D19.parse_input()
 
-#     assert D15.p1(@input) == 515_974
-#   end
+  test "part 1 works" do
+    assert D19.p1(@test_input) == 19114
+    assert D19.p1(@input) == 399_284
+  end
 
-#   test "part 2 works" do
-#     assert D15.p2(@test_input) == 145
-#     assert D15.p2(@input) == 265_894
-#   end
-# end
+  # test "part 2 works" do
+  #   assert D19.p2(@test_input) == 145
+  #   assert D19.p2(@input) == 265_894
+  # end
+end
 
-# ExUnit.run()
+ExUnit.run()
 ```
 
 <!-- livebook:{"output":true} -->
 
 ```
-nil
+.
+Finished in 0.00 seconds (0.00s async, 0.00s sync)
+1 test, 0 failures
+
+Randomized with seed 140176
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+%{excluded: 0, failures: 0, skipped: 0, total: 1}
 ```

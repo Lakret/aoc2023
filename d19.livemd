@@ -1,0 +1,464 @@
+<!-- livebook:{"persist_outputs":true} -->
+
+# Day 19
+
+## Solution
+
+```elixir
+defmodule D19 do
+  @workflow_regex ~r/(?<name>\w+){(?<conds>.+),(?<otherwise>\w+)}/
+  @cond_regex ~r/(?<cat>[xmas])(?<op>[><])(?<val>\d+):(?<send_to>\w+)/
+  @part_regex ~r/{x=(?<x>\d+),m=(?<m>\d+),a=(?<a>\d+),s=(?<s>\d+)}/
+
+  def parse_input(input) do
+    [workflows, parts] = input |> String.trim() |> String.split("\n\n")
+
+    workflows =
+      workflows
+      |> String.split("\n")
+      |> Enum.map(fn workflow ->
+        %{
+          "name" => name,
+          "conds" => conds,
+          "otherwise" => otherwise
+        } = Regex.named_captures(@workflow_regex, workflow)
+
+        conds =
+          String.split(conds, ",")
+          |> Enum.map(fn condition ->
+            parts = Regex.named_captures(@cond_regex, condition)
+
+            %{
+              cat: parts["cat"],
+              op: parts["op"],
+              send_to: parts["send_to"],
+              val: String.to_integer(parts["val"])
+            }
+          end)
+
+        {name, %{conds: conds, otherwise: otherwise}}
+      end)
+      |> Enum.into(%{})
+
+    parts =
+      parts
+      |> String.split("\n")
+      |> Enum.map(fn part ->
+        Regex.named_captures(@part_regex, part)
+        |> Enum.map(fn {k, v} -> {k, String.to_integer(v)} end)
+        |> Enum.into(%{})
+      end)
+
+    %{workflows: workflows, parts: parts}
+  end
+
+  def rating(part) when is_map(part), do: Map.values(part) |> Enum.sum()
+
+  def run(part, workflow) when is_map(part) and is_map(workflow) do
+    # TODO:
+  end
+end
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+{:module, D19, <<70, 79, 82, 49, 0, 0, 17, ...>>, {:run, 2}}
+```
+
+```elixir
+test_input = """
+px{a<2006:qkq,m>2090:A,rfg}
+pv{a>1716:R,A}
+lnx{m>1548:A,A}
+rfg{s<537:gd,x>2440:R,A}
+qs{s>3448:A,lnx}
+qkq{x<1416:A,crn}
+crn{x>2662:A,R}
+in{s<1351:px,qqz}
+qqz{s>2770:qs,m<1801:hdj,R}
+gd{a>3333:R,R}
+hdj{m>838:A,pv}
+
+{x=787,m=2655,a=1222,s=2876}
+{x=1679,m=44,a=2067,s=496}
+{x=2036,m=264,a=79,s=2244}
+{x=2461,m=1339,a=466,s=291}
+{x=2127,m=1623,a=2188,s=1013}
+"""
+
+test_input = D19.parse_input(test_input)
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+%{
+  parts: [
+    %{"a" => 1222, "m" => 2655, "s" => 2876, "x" => 787},
+    %{"a" => 2067, "m" => 44, "s" => 496, "x" => 1679},
+    %{"a" => 79, "m" => 264, "s" => 2244, "x" => 2036},
+    %{"a" => 466, "m" => 1339, "s" => 291, "x" => 2461},
+    %{"a" => 2188, "m" => 1623, "s" => 1013, "x" => 2127}
+  ],
+  workflows: %{
+    "crn" => %{conds: [%{cat: "x", op: ">", send_to: "A", val: 2662}], otherwise: "R"},
+    "gd" => %{conds: [%{cat: "a", op: ">", send_to: "R", val: 3333}], otherwise: "R"},
+    "hdj" => %{conds: [%{cat: "m", op: ">", send_to: "A", val: 838}], otherwise: "pv"},
+    "in" => %{conds: [%{cat: "s", op: "<", send_to: "px", val: 1351}], otherwise: "qqz"},
+    "lnx" => %{conds: [%{cat: "m", op: ">", send_to: "A", val: 1548}], otherwise: "A"},
+    "pv" => %{conds: [%{cat: "a", op: ">", send_to: "R", val: 1716}], otherwise: "A"},
+    "px" => %{
+      conds: [
+        %{cat: "a", op: "<", send_to: "qkq", val: 2006},
+        %{cat: "m", op: ">", send_to: "A", val: 2090}
+      ],
+      otherwise: "rfg"
+    },
+    "qkq" => %{conds: [%{cat: "x", op: "<", send_to: "A", val: 1416}], otherwise: "crn"},
+    "qqz" => %{
+      conds: [
+        %{cat: "s", op: ">", send_to: "qs", val: 2770},
+        %{cat: "m", op: "<", send_to: "hdj", val: 1801}
+      ],
+      otherwise: "R"
+    },
+    "qs" => %{conds: [%{cat: "s", op: ">", send_to: "A", val: 3448}], otherwise: "lnx"},
+    "rfg" => %{
+      conds: [
+        %{cat: "s", op: "<", send_to: "gd", val: 537},
+        %{cat: "x", op: ">", send_to: "R", val: 2440}
+      ],
+      otherwise: "A"
+    }
+  }
+}
+```
+
+```elixir
+input = File.read!("inputs/d19")
+input = D19.parse_input(input)
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+%{
+  parts: [
+    %{"a" => 2802, "m" => 1891, "s" => 1569, "x" => 284},
+    %{"a" => 2230, "m" => 57, "s" => 462, "x" => 420},
+    %{"a" => 1100, "m" => 8, "s" => 2896, "x" => 39},
+    %{"a" => 578, "m" => 1242, "s" => 501, "x" => 1870},
+    %{"a" => 3, "m" => 3725, "s" => 1411, "x" => 1206},
+    %{"a" => 453, "m" => 1197, "s" => 88, "x" => 2376},
+    %{"a" => 105, "m" => 1947, "s" => 645, "x" => 1184},
+    %{"a" => 1435, "m" => 1024, "s" => 625, "x" => 1442},
+    %{"a" => 83, "m" => 2649, "s" => 275, "x" => 581},
+    %{"a" => 1730, "m" => 1328, "s" => 1711, "x" => 2882},
+    %{"a" => 320, "m" => 636, "s" => 1480, "x" => 434},
+    %{"a" => 1125, "m" => 1245, "s" => 166, "x" => 311},
+    %{"a" => 1905, "m" => 1973, "s" => 1878, "x" => 66},
+    %{"a" => 2700, "m" => 686, "s" => 193, "x" => 1023},
+    %{"a" => 613, "m" => 1312, "s" => 2349, "x" => 252},
+    %{"a" => 394, "m" => 311, "s" => 89, "x" => 3654},
+    %{"a" => 1429, "m" => 27, "s" => 1221, "x" => 865},
+    %{"a" => 1947, "m" => 2777, "s" => 2550, "x" => 438},
+    %{"a" => 214, "m" => 1736, "s" => 20, "x" => 45},
+    %{"a" => 737, "m" => 750, "s" => 292, "x" => 427},
+    %{"a" => 186, "m" => 158, "s" => 98, "x" => 458},
+    %{"a" => 311, "m" => 2448, "s" => 2044, "x" => 420},
+    %{"a" => 558, "m" => 231, "s" => 846, "x" => 3669},
+    %{"a" => 1107, "m" => 166, "s" => 104, "x" => 193},
+    %{"a" => 209, "m" => 1284, "s" => 1836, "x" => 19},
+    %{"a" => 1449, "m" => 1129, "s" => 1583, "x" => 995},
+    %{"a" => 3751, "m" => 2093, "s" => 817, "x" => 1539},
+    %{"a" => 9, "m" => 694, "s" => 2118, "x" => 994},
+    %{"a" => 845, "m" => 2235, "s" => 22, "x" => 140},
+    %{"a" => 1620, "m" => 350, "s" => 525, "x" => 1254},
+    %{"a" => 1070, "m" => 152, "s" => 602, "x" => 1172},
+    %{"a" => 115, "m" => 3148, "s" => 11, "x" => 275},
+    %{"a" => 3183, "m" => 2316, "s" => 687, "x" => 168},
+    %{"a" => 360, "m" => 1657, "s" => 2283, "x" => 550},
+    %{"a" => 2411, "m" => 572, "s" => 1435, "x" => 2268},
+    %{"a" => 1593, "m" => 652, "s" => 316, "x" => 1441},
+    %{"a" => 269, "m" => 492, "s" => 2100, "x" => 371},
+    %{"a" => 664, "m" => 2240, "s" => 763, "x" => 1704},
+    %{"a" => 2114, "m" => 2838, "s" => 93, "x" => 594},
+    %{"a" => 948, "m" => 286, "s" => 160, "x" => 195},
+    %{"a" => 672, "m" => 2398, "s" => 530, "x" => 1727},
+    %{"a" => 1096, "m" => 1, "s" => 209, "x" => 1431},
+    %{"a" => 831, "m" => 280, "s" => 915, "x" => 499},
+    %{"a" => 200, "m" => 1095, "s" => 439, "x" => 2517},
+    %{"a" => 457, "m" => 371, "s" => 350, "x" => 2244},
+    %{"a" => 37, "m" => 67, "s" => 113, ...},
+    %{"a" => 1770, "m" => 1478, ...},
+    %{"a" => 266, ...},
+    %{...},
+    ...
+  ],
+  workflows: %{
+    "ngj" => %{
+      conds: [
+        %{cat: "m", op: ">", send_to: "R", val: 1731},
+        %{cat: "x", op: ">", send_to: "R", val: 432},
+        %{cat: "s", op: ">", send_to: "R", val: 291}
+      ],
+      otherwise: "R"
+    },
+    "xln" => %{
+      conds: [
+        %{cat: "s", op: ">", send_to: "scv", val: 497},
+        %{cat: "a", op: "<", send_to: "fvp", val: 2539},
+        %{cat: "s", op: "<", send_to: "qnb", val: 259}
+      ],
+      otherwise: "jql"
+    },
+    "pcc" => %{conds: [%{cat: "x", op: ">", send_to: "R", val: 631}], otherwise: "R"},
+    "bjj" => %{
+      conds: [
+        %{cat: "s", op: ">", send_to: "zh", val: 1799},
+        %{cat: "a", op: "<", send_to: "R", val: 491}
+      ],
+      otherwise: "bp"
+    },
+    "zv" => %{conds: [%{cat: "m", op: ">", send_to: "rds", val: 707}], otherwise: "fj"},
+    "fhv" => %{
+      conds: [
+        %{cat: "x", op: "<", send_to: "rg", val: 1791},
+        %{cat: "x", op: "<", send_to: "hxj", val: 2100}
+      ],
+      otherwise: "ngt"
+    },
+    "drh" => %{
+      conds: [
+        %{cat: "s", op: "<", send_to: "prp", val: 2784},
+        %{cat: "m", op: "<", send_to: "xk", val: 2166}
+      ],
+      otherwise: "vvf"
+    },
+    "vjf" => %{
+      conds: [
+        %{cat: "m", op: ">", send_to: "rrr", val: 2461},
+        %{cat: "m", op: ">", send_to: "bfg", val: 889}
+      ],
+      otherwise: "pnc"
+    },
+    "bm" => %{conds: [%{cat: "m", op: ">", send_to: "R", val: 1911}], otherwise: "A"},
+    "jmk" => %{
+      conds: [
+        %{cat: "x", op: "<", send_to: "ffz", val: 146},
+        %{cat: "x", op: "<", send_to: "qhr", val: 202},
+        %{cat: "x", op: "<", send_to: "nqd", val: 213}
+      ],
+      otherwise: "xgr"
+    },
+    "jhd" => %{
+      conds: [
+        %{cat: "s", op: ">", send_to: "R", val: 2212},
+        %{cat: "x", op: ">", send_to: "A", val: 139},
+        %{cat: "s", op: "<", send_to: "A", val: 1705}
+      ],
+      otherwise: "R"
+    },
+    "jf" => %{conds: [%{cat: "x", op: ">", send_to: "A", val: 3150}], otherwise: "R"},
+    "jrl" => %{
+      conds: [
+        %{cat: "a", op: ">", send_to: "A", val: 1197},
+        %{cat: "x", op: "<", send_to: "R", val: 3609}
+      ],
+      otherwise: "R"
+    },
+    "tcn" => %{
+      conds: [
+        %{cat: "a", op: "<", send_to: "R", val: 1276},
+        %{cat: "m", op: "<", send_to: "R", val: 285},
+        %{cat: "m", op: ">", send_to: "R", val: 430}
+      ],
+      otherwise: "R"
+    },
+    "lqn" => %{conds: [%{cat: "x", op: ">", send_to: "R", val: 3735}], otherwise: "R"},
+    "rrr" => %{
+      conds: [
+        %{cat: "x", op: ">", send_to: "hqt", val: 1981},
+        %{cat: "m", op: ">", send_to: "plx", val: 3434}
+      ],
+      otherwise: "gqx"
+    },
+    "ksm" => %{
+      conds: [
+        %{cat: "a", op: "<", send_to: "A", val: 3657},
+        %{cat: "s", op: "<", send_to: "R", val: 293},
+        %{cat: "s", op: "<", send_to: "R", val: 313}
+      ],
+      otherwise: "R"
+    },
+    "jqq" => %{
+      conds: [
+        %{cat: "s", op: ">", send_to: "tbt", val: 2179},
+        %{cat: "a", op: "<", send_to: "rtl", val: 3088},
+        %{cat: "m", op: ">", send_to: "hks", val: 1659}
+      ],
+      otherwise: "xr"
+    },
+    "rb" => %{conds: [%{cat: "m", op: "<", send_to: "A", val: 2169}], otherwise: "R"},
+    "sl" => %{
+      conds: [
+        %{cat: "s", op: ">", send_to: "R", val: 1036},
+        %{cat: "s", op: "<", send_to: "R", val: 730},
+        %{cat: "a", op: "<", send_to: "A", val: 717}
+      ],
+      otherwise: "A"
+    },
+    "rsp" => %{conds: [%{cat: "s", op: "<", send_to: "rrs", val: 973}], otherwise: "zrh"},
+    "tj" => %{conds: [%{cat: "a", op: "<", send_to: "tl", val: 1550}], otherwise: "pmq"},
+    "mx" => %{
+      conds: [
+        %{cat: "m", op: ">", send_to: "A", val: 2664},
+        %{cat: "x", op: ">", send_to: "R", val: 3311},
+        %{cat: "m", op: "<", send_to: "R", val: 1352}
+      ],
+      otherwise: "R"
+    },
+    "pn" => %{conds: [%{cat: "a", op: ">", send_to: "R", val: 2641}], otherwise: "dmb"},
+    "jlx" => %{
+      conds: [
+        %{cat: "x", op: ">", send_to: "R", val: 2704},
+        %{cat: "s", op: ">", send_to: "R", val: 2411},
+        %{cat: "a", op: "<", send_to: "A", val: 2472}
+      ],
+      otherwise: "R"
+    },
+    "dht" => %{
+      conds: [
+        %{cat: "m", op: ">", send_to: "A", val: 3146},
+        %{cat: "a", op: "<", send_to: "A", val: 1376},
+        %{cat: "a", op: ">", send_to: "R", val: 1610}
+      ],
+      otherwise: "A"
+    },
+    "cc" => %{
+      conds: [
+        %{cat: "x", op: "<", send_to: "R", val: 822},
+        %{cat: "a", op: ">", send_to: "A", val: 809}
+      ],
+      otherwise: "A"
+    },
+    "zh" => %{
+      conds: [
+        %{cat: "m", op: "<", send_to: "A", val: 1528},
+        %{cat: "x", op: "<", send_to: "A", val: 834}
+      ],
+      otherwise: "A"
+    },
+    "kv" => %{
+      conds: [
+        %{cat: "s", op: "<", send_to: "nj", val: 1082},
+        %{cat: "m", op: "<", send_to: "vfs", val: 2461}
+      ],
+      otherwise: "psv"
+    },
+    "bq" => %{conds: [%{cat: "x", op: ">", send_to: "R", val: 1046}], otherwise: "R"},
+    "qb" => %{conds: [%{cat: "a", op: "<", send_to: "A", val: 2763}], otherwise: "R"},
+    "qq" => %{
+      conds: [
+        %{cat: "s", op: ">", send_to: "R", val: 2397},
+        %{cat: "m", op: "<", send_to: "R", val: 3270}
+      ],
+      otherwise: "A"
+    },
+    "nb" => %{
+      conds: [
+        %{cat: "x", op: "<", send_to: "R", val: 2427},
+        %{cat: "a", op: ">", send_to: "A", val: 1733}
+      ],
+      otherwise: "A"
+    },
+    "xvl" => %{conds: [%{cat: "m", op: "<", send_to: "R", val: 2873}], otherwise: "R"},
+    "lh" => %{
+      conds: [
+        %{cat: "x", op: "<", send_to: "R", val: 1510},
+        %{cat: "s", op: ">", send_to: "R", val: 2332},
+        %{cat: "m", op: ">", send_to: "A", val: 3647}
+      ],
+      otherwise: "R"
+    },
+    "lzl" => %{
+      conds: [
+        %{cat: "x", op: "<", send_to: "A", val: 1943},
+        %{cat: "s", op: ">", send_to: "R", val: 2403},
+        %{cat: "s", op: ">", send_to: "R", val: 1025}
+      ],
+      otherwise: "R"
+    },
+    "mpv" => %{conds: [%{cat: "m", op: ">", send_to: "A", val: 3252}], otherwise: "dpj"},
+    "cr" => %{conds: [%{cat: "a", op: "<", send_to: "A", val: 1551}], otherwise: "R"},
+    "dj" => %{
+      conds: [
+        %{cat: "x", op: ">", send_to: "A", val: 1446},
+        %{cat: "s", op: "<", send_to: "R", val: 3007}
+      ],
+      otherwise: "R"
+    },
+    "lx" => %{
+      conds: [
+        %{cat: "x", op: "<", send_to: "tg", val: 3551},
+        %{cat: "x", op: ">", send_to: "lc", val: 3641},
+        %{cat: "a", op: "<", send_to: "zk", val: 2158}
+      ],
+      otherwise: "fnt"
+    },
+    "np" => %{conds: [%{cat: "m", op: ">", send_to: "A", val: 793}], otherwise: "R"},
+    "qnb" => %{conds: [%{cat: "a", op: "<", send_to: "zdb", val: 3461}], otherwise: "kbt"},
+    "lcs" => %{conds: [%{cat: "x", op: ">", send_to: "lh", ...}], otherwise: "R"},
+    "ssr" => %{conds: [%{cat: "a", op: "<", ...}, %{cat: "a", ...}], otherwise: "R"},
+    "rmb" => %{conds: [%{cat: "a", ...}], otherwise: "xj"},
+    "hl" => %{conds: [%{...}], otherwise: "bzq"},
+    "crv" => %{conds: [...], ...},
+    "mfd" => %{...},
+    ...
+  }
+}
+```
+
+```elixir
+test_input.parts |> Enum.map(&D19.rating/1)
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+[7540, 4286, 4623, 4557, 6951]
+```
+
+## Tests
+
+```elixir
+# ExUnit.start(autorun: false)
+
+# defmodule D08Test do
+#   use ExUnit.Case, async: true
+
+#   @test_input D15.parse_input("rn=1,cm-,qp=3,cm=2,qp-,pc=4,ot=9,ab=5,pc-,pc=6,ot=7")
+#   @input Path.join(__DIR__, "inputs/d15") |> File.read!() |> D15.parse_input()
+
+#   test "part 1 works" do
+#     assert D15.custom_hash("HASH") == 52
+#     assert D15.p1(@test_input) == 1320
+
+#     assert D15.p1(@input) == 515_974
+#   end
+
+#   test "part 2 works" do
+#     assert D15.p2(@test_input) == 145
+#     assert D15.p2(@input) == 265_894
+#   end
+# end
+
+# ExUnit.run()
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+nil
+```

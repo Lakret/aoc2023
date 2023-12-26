@@ -52,31 +52,52 @@ defmodule D12 do
     end)
   end
 
-  def solve(states, damaged), do: solve(states, damaged, false)
+  def solve(states, damaged), do: solve(states, damaged, 0)
 
   def solve("", [], _), do: 1
   def solve("", [0], _), do: 1
   def solve(".", [], _), do: 1
   def solve(".", [0], _), do: 1
+  def solve("?", [], _), do: 1
+  def solve("?", [0], _), do: 1
+  def solve("?", [1], _), do: 1
+  def solve("#", [], _), do: 0
   def solve("#", [1], _), do: 1
   def solve("#", damaged, _) when length(damaged) > 0, do: 0
 
   def solve(<<"?", rest::binary>>, [springs | damaged], continuing) do
-    # if continuing  do
-    #   if springs > 0 do
-    solve("#" <> rest, [springs | damaged], true) + solve("." <> rest, [springs | damaged], false)
-    #   else
-    #     solve("#" <> rest, damaged, false) + solve("." <> rest, damaged, false)
-    #   end
-    # else
-    # solve("#" <> rest, damaged, false) + solve("." <> rest, damaged, false)
-    # end
+    if continuing > 0 do
+      if springs > 0 do
+        # IO.inspect("NUH")
+        # + 
+        solve("#" <> rest, [springs | damaged], continuing)
+        # solve("." <> rest, [continuing + springs | damaged])
+      else
+        # IO.inspect("NAH")
+        solve("#" <> rest, damaged, continuing) + solve("." <> rest, [continuing | damaged], 0)
+      end
+    else
+      # IO.inspect("NEH")
+      solve("#" <> rest, [springs | damaged], 0) + solve("." <> rest, [springs | damaged], 0)
+    end
+  end
+
+  def solve(<<"?", rest::binary>>, [], continuing) do
+    if continuing > 0 do
+      solve("." <> rest, [continuing], 0)
+    else
+      solve("." <> rest, [], 0)
+    end
   end
 
   def solve(<<".", rest::binary>>, damaged, continuing) do
-    res = solve(rest, damaged, continuing)
-    # IO.inspect({rest, damaged, res})
-    res
+    if continuing > 0 do
+      # IO.inspect("YO HERE: #{rest}, #{inspect(damaged)}")
+      solve(rest, [continuing | damaged])
+    else
+      # IO.inspect("HERE: #{rest}, #{inspect(damaged)}")
+      solve(rest, damaged, 0)
+    end
   end
 
   def solve(
@@ -87,7 +108,8 @@ defmodule D12 do
     x =
       case {a, b, springs} do
         {"#", ".", 1} ->
-          solve(rest, damaged, false)
+          # IO.inspect("here calling: #{b <> rest}, #{inspect(damaged)}")
+          solve(b <> rest, damaged, 0)
 
         {"#", ".", _} ->
           0
@@ -96,45 +118,39 @@ defmodule D12 do
           0
 
         {"#", "#", springs} when springs >= 2 ->
-          solve(b <> rest, [springs - 1 | damaged], true)
+          solve(b <> rest, [springs - 1 | damaged], continuing + 1)
 
         {"#", "?", 1} ->
-          solve("." <> rest, damaged, false)
+          solve("." <> rest, damaged, 0)
 
         {"#", "?", springs} when springs > 1 ->
-          solve(b <> rest, [springs - 1 | damaged], true)
+          solve(b <> rest, [springs - 1 | damaged], continuing + 1)
 
         {"#", "?", _} ->
           0
 
         {".", b, springs} ->
-          solve(b <> rest, springs, false)
+          if continuing > 0 do
+            solve(b <> rest, [continuing | springs], 0)
+          else
+            solve(b <> rest, springs, 0)
+          end
       end
 
-    # IO.inspect({a, b, rest, springs, damaged, x})
+    # IO.inspect({a, b, rest, springs, damaged, continuing, x})
     x
   end
 
+  def solve(<<"#", _rest::binary>>, [], _), do: 0
+
   def solve("", _, _), do: 0
-  def solve(_, [], _), do: 0
 end
 ```
 
 <!-- livebook:{"output":true} -->
 
 ```
-warning: variable "continuing" is unused (if the variable is not meant to be used, prefix it with an underscore)
-  d12.livemd#cell:4b4avih4hm4bogie5d5h7yjc4h55grnx:27: D12.solve/3
-
-warning: variable "continuing" is unused (if the variable is not meant to be used, prefix it with an underscore)
-  d12.livemd#cell:4b4avih4hm4bogie5d5h7yjc4h55grnx:48: D12.solve/3
-
-```
-
-<!-- livebook:{"output":true} -->
-
-```
-{:module, D12, <<70, 79, 82, 49, 0, 0, 16, ...>>, {:solve, 3}}
+{:module, D12, <<70, 79, 82, 49, 0, 0, 19, ...>>, {:solve, 3}}
 ```
 
 ```elixir
@@ -229,13 +245,15 @@ test_input =
 # D12.solve("????.", [2])
 # D12.solve("#...#...", [1, 1])
 # D12.solve("..", [])
-D12.solve("#??.", [2])
+# D12.solve("###???", [3])
+# D12.solve("#???", [1])
+D12.solve("?.", [])
 ```
 
 <!-- livebook:{"output":true} -->
 
 ```
-2
+1
 ```
 
 ```elixir
@@ -245,7 +263,7 @@ Enum.map(test_input, fn {states, damaged} -> D12.solve(states, damaged) end)
 <!-- livebook:{"output":true} -->
 
 ```
-[1, 4, 1, 1, 4, 16]
+[1, 4, 1, 1, 4, 10]
 ```
 
 ```elixir
@@ -256,7 +274,7 @@ Enum.map(input, fn {states, damaged} -> D12.solve(states, damaged) end)
 <!-- livebook:{"output":true} -->
 
 ```
-65888
+7236
 ```
 
 ```elixir

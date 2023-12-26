@@ -21,7 +21,7 @@ defmodule D12 do
     end)
   end
 
-  def solve(states, damaged, memo \\ %{}), do: solve(states, damaged, 0, memo)
+  def solve(states, damaged, memo \\ %{}), do: solve(states, damaged, 0, memo) |> elem(0)
 
   def solve("", [], _, memo), do: {1, memo}
   def solve("", _, _, memo), do: {0, memo}
@@ -104,23 +104,19 @@ defmodule D12 do
   end
 
   def p1(input) do
-    Enum.reduce(input, {[], %{}}, fn {states, damaged}, {answers, memo} ->
-      {answer, memo} = solve(states, damaged, memo)
-      {[answer | answers], memo}
-    end)
-    |> elem(0)
+    input
+    |> Enum.map(fn {states, damaged} -> solve(states, damaged) end)
     |> Enum.sum()
   end
 
   def p2(input) do
-    Enum.reduce(input, {[], %{}}, fn {states, damaged}, {answers, memo} ->
+    input
+    |> Enum.map(fn {states, damaged} ->
       states = List.duplicate(states, 5) |> Enum.intersperse("?") |> Enum.join()
       damaged = List.duplicate(damaged, 5) |> List.flatten()
 
-      {answer, memo} = solve(states, damaged, memo)
-      {[answer | answers], memo}
+      solve(states, damaged)
     end)
-    |> elem(0)
     |> Enum.sum()
   end
 end
@@ -129,7 +125,7 @@ end
 <!-- livebook:{"output":true} -->
 
 ```
-{:module, D12, <<70, 79, 82, 49, 0, 0, 27, ...>>, {:p2, 1}}
+{:module, D12, <<70, 79, 82, 49, 0, 0, 26, ...>>, {:p2, 1}}
 ```
 
 ## Tests
@@ -169,7 +165,7 @@ ExUnit.run()
 
 ```
 ..
-Finished in 1.9 seconds (1.9s async, 0.00s sync)
+Finished in 0.4 seconds (0.4s async, 0.00s sync)
 2 tests, 0 failures
 
 Randomized with seed 543087

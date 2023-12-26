@@ -111,12 +111,16 @@ defmodule D12 do
 
   def p2(input) do
     input
-    |> Enum.map(fn {states, damaged} ->
-      states = List.duplicate(states, 5) |> Enum.intersperse("?") |> Enum.join()
-      damaged = List.duplicate(damaged, 5) |> List.flatten()
+    |> Task.async_stream(
+      fn {states, damaged} ->
+        states = List.duplicate(states, 5) |> Enum.intersperse("?") |> Enum.join()
+        damaged = List.duplicate(damaged, 5) |> List.flatten()
 
-      solve(states, damaged)
-    end)
+        solve(states, damaged)
+      end,
+      timeout: :infinity
+    )
+    |> Enum.map(&elem(&1, 1))
     |> Enum.sum()
   end
 end
@@ -125,7 +129,7 @@ end
 <!-- livebook:{"output":true} -->
 
 ```
-{:module, D12, <<70, 79, 82, 49, 0, 0, 26, ...>>, {:p2, 1}}
+{:module, D12, <<70, 79, 82, 49, 0, 0, 27, ...>>, {:p2, 1}}
 ```
 
 ## Tests
@@ -165,7 +169,7 @@ ExUnit.run()
 
 ```
 ..
-Finished in 0.4 seconds (0.4s async, 0.00s sync)
+Finished in 0.1 seconds (0.1s async, 0.00s sync)
 2 tests, 0 failures
 
 Randomized with seed 543087

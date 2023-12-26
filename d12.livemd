@@ -24,9 +24,7 @@ defmodule D12 do
   def solve(states, damaged, memo \\ %{}), do: solve(states, damaged, 0, memo)
 
   def solve("", [], _, memo), do: {1, memo}
-  def solve("", [0], _, memo), do: {1, memo}
   def solve("", _, _, memo), do: {0, memo}
-  def solve("#", [], _, memo), do: {0, memo}
   def solve("#", [1], _, memo), do: {1, memo}
   def solve("#", damaged, _, memo) when length(damaged) > 0, do: {0, memo}
 
@@ -46,20 +44,12 @@ defmodule D12 do
     end
   end
 
-  def solve(<<"?", rest::binary>>, [], continuing, memo) do
-    if continuing > 0 do
-      solve_with_memo("." <> rest, [continuing], 0, memo)
-    else
-      solve_with_memo("." <> rest, [], 0, memo)
-    end
+  def solve(<<"?", rest::binary>>, [], _continuing, memo) do
+    solve_with_memo("." <> rest, [], 0, memo)
   end
 
-  def solve(<<".", rest::binary>>, damaged, continuing, memo) do
-    if continuing > 0 do
-      solve_with_memo(rest, [continuing | damaged], 0, memo)
-    else
-      solve_with_memo(rest, damaged, 0, memo)
-    end
+  def solve(<<".", rest::binary>>, damaged, _continuing, memo) do
+    solve_with_memo(rest, damaged, 0, memo)
   end
 
   def solve(
@@ -139,7 +129,7 @@ end
 <!-- livebook:{"output":true} -->
 
 ```
-{:module, D12, <<70, 79, 82, 49, 0, 0, 28, ...>>, {:p2, 1}}
+{:module, D12, <<70, 79, 82, 49, 0, 0, 27, ...>>, {:p2, 1}}
 ```
 
 ## Tests
@@ -179,7 +169,7 @@ ExUnit.run()
 
 ```
 ..
-Finished in 1.8 seconds (1.8s async, 0.00s sync)
+Finished in 1.9 seconds (1.9s async, 0.00s sync)
 2 tests, 0 failures
 
 Randomized with seed 543087

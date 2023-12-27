@@ -17,6 +17,7 @@ This year, I'm writing blog posts to explain my solutions for each of the days:
 - [x] [Day 7 in Elixir](https://lakret.net/blog/2023-12-07-aoc-day7)
 - [x] [Day 8 in Elixir, Days 9 and 10 in Julia](https://lakret.net/blog/2023-12-10-aoc-days-8-9-10)
 - [x] [Day 11 in Rust](https://lakret.net/blog/2023-12-11-aoc-day11)
-- [ ] ToDo: Day 12
+- [x] [Day 12 in Elixir](https://lakret.net/blog/2023-12-27-aoc-days-12-17)
 - [x] [Day 13 in Rust and Day 14 in Julia](https://lakret.net/blog/2023-12-15-aoc-days-13-14)
 - [x] [Day 15 in Elixir and Day 16 in Julia](https://lakret.net/blog/2023-12-16-aoc-days-15-16)
+- [x] [Day 17 in Rust](https://lakret.net/blog/2023-12-27-aoc-days-12-17)

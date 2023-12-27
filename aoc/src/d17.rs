@@ -166,7 +166,7 @@ pub fn dijkstra(map: &Map, p2: bool) -> usize {
     let start = Pos { row: 0, col: 0 };
     let target = Pos { row: map.max_row() - 1, col: map.max_col() - 1 };
     // we can arrive to each block facing various directions and having made 0 to 3 steps in this direction
-    // those are possible states we need to examine, so we a key of (position, direction, remaining_steps)
+    // those are possible states we need to examine, so we a key of (position, direction, walked_steps)
     // instead of just position to figure out which states we have already considered
     let mut visited: HashSet<(Pos, Direction, usize)> = HashSet::new();
 

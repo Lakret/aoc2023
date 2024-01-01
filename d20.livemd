@@ -1,0 +1,244 @@
+<!-- livebook:{"persist_outputs":true} -->
+
+# Day 20
+
+## Solution
+
+```elixir
+test_input =
+  """
+  broadcaster -> a, b, c
+  %a -> b
+  %b -> c
+  %c -> inv
+  &inv -> a
+  """
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+"broadcaster -> a, b, c\n%a -> b\n%b -> c\n%c -> inv\n&inv -> a\n"
+```
+
+```elixir
+defmodule D20 do
+  def parse_input(input) do
+    {conns, kinds} =
+      input
+      |> String.trim()
+      |> String.split("\n")
+      |> Enum.map(fn line ->
+        [src, dst] = String.split(line, " -> ")
+        dst = String.split(dst, ", ")
+
+        {kind, src} =
+          cond do
+            src == "broadcaster" -> {:broadcaster, :broadcaster}
+            String.starts_with?(src, "%") -> {:flip, String.trim_leading(src, "%")}
+            String.starts_with?(src, "&") -> {:conj, String.trim_leading(src, "&")}
+            true -> raise "Unknown: #{src}"
+          end
+
+        {{src, dst}, {src, kind}}
+      end)
+      |> Enum.unzip()
+
+    conns = Enum.into(conns, %{})
+    kinds = Enum.into(kinds, %{})
+
+    conj_modules =
+      kinds
+      |> Enum.map(fn
+        {name, :conj} -> name
+        _ -> nil
+      end)
+      |> Enum.reject(&is_nil/1)
+      |> MapSet.new()
+
+    conj_inputs =
+      Enum.reduce(conns, %{}, fn {src, dst}, inputs ->
+        dst
+        |> Enum.filter(&MapSet.member?(conj_modules, &1))
+        |> Enum.reduce(inputs, fn conj_module, inputs ->
+          module_inputs =
+            Map.get(inputs, conj_module, MapSet.new())
+            |> MapSet.put(src)
+
+          Map.put(inputs, conj_module, module_inputs)
+        end)
+      end)
+
+    %{conns: conns, kinds: kinds, conj_inputs: conj_inputs}
+  end
+
+  def press_button(input) do
+    conj_memory =
+      input.conj_inputs
+      |> Enum.map(fn {conj_module, inputs} ->
+        states = Enum.map(inputs, fn input -> {input, :low} end) |> Enum.into(%{})
+        {conj_module, states}
+      end)
+      |> Enum.into(%{})
+
+    press_button(input, 0, 0, MapSet.new(), conj_memory, [{:button, :low, :broadcaster}])
+  end
+
+  # TODO: perhaps it makes sense to remember on-off and conj_memory to detect cycles
+  def press_button(_input, low, high, _, _, []), do: {low, high}
+
+  def press_button(
+        %{conns: conns, kinds: kinds} = input,
+        low,
+        high,
+        on_flips,
+        conj_memory,
+        [{src, signal_kind, dst} | rest]
+      ) do
+    # IO.puts("#{inspect(src)} -(#{inspect(signal_kind)})-> #{inspect(dst)}")
+
+    {low, high} =
+      case signal_kind do
+        :low -> {low + 1, high}
+        :high -> {low, high + 1}
+      end
+
+    dst_kind = kinds[dst]
+    # TODO: can we extract the recursive call after the match?
+    case dst_kind do
+      :broadcaster ->
+        pulses =
+          Enum.map(
+            conns[:broadcaster],
+            fn dst -> {:broadcaster, signal_kind, dst} end
+          )
+
+        press_button(input, low, high, on_flips, conj_memory, rest ++ pulses)
+
+      :flip ->
+        case signal_kind do
+          :high ->
+            press_button(input, low, high, on_flips, conj_memory, rest)
+
+          :low ->
+            if MapSet.member?(on_flips, dst) do
+              on_flips = MapSet.delete(on_flips, dst)
+              pulses = Enum.map(conns[dst], fn next_dst -> {dst, :low, next_dst} end)
+              press_button(input, low, high, on_flips, conj_memory, rest ++ pulses)
+            else
+              on_flips = MapSet.put(on_flips, dst)
+              pusles = Enum.map(conns[dst], fn next_dst -> {dst, :high, next_dst} end)
+              press_button(input, low, high, on_flips, conj_memory, rest ++ pusles)
+            end
+        end
+
+      :conj ->
+        conj_memory = put_in(conj_memory, [dst, src], signal_kind)
+        remembered_pulses = conj_memory[dst] |> Map.values()
+
+        new_pulse_kind =
+          if Enum.all?(remembered_pulses, fn pulse -> pulse == :high end) do
+            :low
+          else
+            :high
+          end
+
+        pulses = Enum.map(conns[dst], fn next_dst -> {dst, new_pulse_kind, next_dst} end)
+        press_button(input, low, high, on_flips, conj_memory, rest ++ pulses)
+    end
+  end
+
+  def p1(input) do
+  end
+end
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+warning: variable "input" is unused (if the variable is not meant to be used, prefix it with an underscore)
+  aoc2023/d20.livemd#cell:lc22efmfonbcvuhbdeoatlifrkfg2cx7:121: D20.p1/1
+
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+{:module, D20, <<70, 79, 82, 49, 0, 0, 31, ...>>, {:p1, 1}}
+```
+
+```elixir
+test_input = D20.parse_input(test_input)
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+%{
+  kinds: %{:broadcaster => :broadcaster, "a" => :flip, "b" => :flip, "c" => :flip, "inv" => :conj},
+  conj_inputs: %{"inv" => MapSet.new(["c"])},
+  conns: %{
+    :broadcaster => ["a", "b", "c"],
+    "a" => ["b"],
+    "b" => ["c"],
+    "c" => ["inv"],
+    "inv" => ["a"]
+  }
+}
+```
+
+```elixir
+D20.press_button(test_input)
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+%{"inv" => %{"c" => :low}}
+:button -(:low)-> :broadcaster
+:broadcaster -(:low)-> "a"
+:broadcaster -(:low)-> "b"
+:broadcaster -(:low)-> "c"
+"a" -(:high)-> "b"
+"b" -(:high)-> "c"
+"c" -(:high)-> "inv"
+conj: %{"inv" => %{"c" => :high}}
+"inv" -(:low)-> "a"
+"a" -(:low)-> "b"
+"b" -(:low)-> "c"
+"c" -(:low)-> "inv"
+conj: %{"inv" => %{"c" => :low}}
+"inv" -(:high)-> "a"
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+{8, 4}
+```
+
+## Tests
+
+```elixir
+# ExUnit.start(autorun: false)
+
+# defmodule D20Test do
+#   use ExUnit.Case, async: true
+
+#   @test_input D20.parse_input()
+
+#   @input Path.join(__DIR__, "inputs/d12") |> File.read!() |> D12.parse_input()
+
+#   test "part 1 works" do
+#     assert D12.p1(@test_input) == 21
+#     assert D12.p1(@input) == 7236
+#   end
+
+#   test "part 2 works" do
+#     assert D12.p2(@test_input) == 525_152
+#     assert D12.p2(@input) == 11_607_695_322_318
+#   end
+# end
+
+# ExUnit.run()
+```

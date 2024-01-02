@@ -13,12 +13,21 @@ test_input =
   %c -> inv
   &inv -> a
   """
+
+test_input2 =
+  """
+  broadcaster -> a
+  %a -> inv, con
+  &inv -> b
+  %b -> con
+  &con -> output
+  """
 ```
 
 <!-- livebook:{"output":true} -->
 
 ```
-"broadcaster -> a, b, c\n%a -> b\n%b -> c\n%c -> inv\n&inv -> a\n"
+"broadcaster -> a\n%a -> inv, con\n&inv -> b\n%b -> con\n&con -> output\n"
 ```
 
 ```elixir
@@ -72,20 +81,24 @@ defmodule D20 do
     %{conns: conns, kinds: kinds, conj_inputs: conj_inputs}
   end
 
-  def press_button(input) do
-    conj_memory =
-      input.conj_inputs
-      |> Enum.map(fn {conj_module, inputs} ->
-        states = Enum.map(inputs, fn input -> {input, :low} end) |> Enum.into(%{})
-        {conj_module, states}
-      end)
-      |> Enum.into(%{})
+  def init_conj_memory(input) do
+    input.conj_inputs
+    |> Enum.map(fn {conj_module, inputs} ->
+      states = Enum.map(inputs, fn input -> {input, :low} end) |> Enum.into(%{})
+      {conj_module, states}
+    end)
+    |> Enum.into(%{})
+  end
 
+  def press_button(input) do
+    conj_memory = init_conj_memory(input)
     press_button(input, 0, 0, MapSet.new(), conj_memory, [{:button, :low, :broadcaster}])
   end
 
   # TODO: perhaps it makes sense to remember on-off and conj_memory to detect cycles
-  def press_button(_input, low, high, _, _, []), do: {low, high}
+  def press_button(_input, low, high, on_flips, conj_memory, []) do
+    {low, high, on_flips, conj_memory}
+  end
 
   def press_button(
         %{conns: conns, kinds: kinds} = input,
@@ -145,10 +158,26 @@ defmodule D20 do
 
         pulses = Enum.map(conns[dst], fn next_dst -> {dst, new_pulse_kind, next_dst} end)
         press_button(input, low, high, on_flips, conj_memory, rest ++ pulses)
+
+      nil ->
+        press_button(input, low, high, on_flips, conj_memory, rest)
     end
   end
 
+  # TODO: {low, high, on_flips, conj_memory} as State struct?
   def p1(input) do
+    conj_memory = init_conj_memory(input)
+
+    {low, high, _, _} =
+      Enum.reduce(
+        1..1000,
+        {0, 0, MapSet.new(), conj_memory},
+        fn _, {low, high, on_flips, conj_memory} ->
+          press_button(input, low, high, on_flips, conj_memory, [{:button, :low, :broadcaster}])
+        end
+      )
+
+    low * high
   end
 end
 ```
@@ -156,15 +185,7 @@ end
 <!-- livebook:{"output":true} -->
 
 ```
-warning: variable "input" is unused (if the variable is not meant to be used, prefix it with an underscore)
-  aoc2023/d20.livemd#cell:lc22efmfonbcvuhbdeoatlifrkfg2cx7:121: D20.p1/1
-
-```
-
-<!-- livebook:{"output":true} -->
-
-```
-{:module, D20, <<70, 79, 82, 49, 0, 0, 31, ...>>, {:p1, 1}}
+{:module, D20, <<70, 79, 82, 49, 0, 0, 35, ...>>, {:p1, 1}}
 ```
 
 ```elixir
@@ -188,57 +209,88 @@ test_input = D20.parse_input(test_input)
 ```
 
 ```elixir
-D20.press_button(test_input)
+test_input2 = D20.parse_input(test_input2)
 ```
 
 <!-- livebook:{"output":true} -->
 
 ```
-%{"inv" => %{"c" => :low}}
-:button -(:low)-> :broadcaster
-:broadcaster -(:low)-> "a"
-:broadcaster -(:low)-> "b"
-:broadcaster -(:low)-> "c"
-"a" -(:high)-> "b"
-"b" -(:high)-> "c"
-"c" -(:high)-> "inv"
-conj: %{"inv" => %{"c" => :high}}
-"inv" -(:low)-> "a"
-"a" -(:low)-> "b"
-"b" -(:low)-> "c"
-"c" -(:low)-> "inv"
-conj: %{"inv" => %{"c" => :low}}
-"inv" -(:high)-> "a"
+%{
+  kinds: %{:broadcaster => :broadcaster, "a" => :flip, "b" => :flip, "con" => :conj, "inv" => :conj},
+  conj_inputs: %{"con" => MapSet.new(["a", "b"]), "inv" => MapSet.new(["a"])},
+  conns: %{
+    :broadcaster => ["a"],
+    "a" => ["inv", "con"],
+    "b" => ["con"],
+    "con" => ["output"],
+    "inv" => ["b"]
+  }
+}
+```
+
+```elixir
+D20.p1(test_input)
 ```
 
 <!-- livebook:{"output":true} -->
 
 ```
-{8, 4}
+32000000
 ```
 
 ## Tests
 
 ```elixir
-# ExUnit.start(autorun: false)
+ExUnit.start(autorun: false)
 
-# defmodule D20Test do
-#   use ExUnit.Case, async: true
+defmodule D20Test do
+  use ExUnit.Case, async: true
 
-#   @test_input D20.parse_input()
+  @test_input D20.parse_input("""
+              broadcaster -> a, b, c
+              %a -> b
+              %b -> c
+              %c -> inv
+              &inv -> a
+              """)
 
-#   @input Path.join(__DIR__, "inputs/d12") |> File.read!() |> D12.parse_input()
+  @test_input2 D20.parse_input("""
+               broadcaster -> a
+               %a -> inv, con
+               &inv -> b
+               %b -> con
+               &con -> output
+               """)
 
-#   test "part 1 works" do
-#     assert D12.p1(@test_input) == 21
-#     assert D12.p1(@input) == 7236
-#   end
+  @input Path.join(__DIR__, "inputs/d20") |> File.read!() |> D20.parse_input()
 
-#   test "part 2 works" do
-#     assert D12.p2(@test_input) == 525_152
-#     assert D12.p2(@input) == 11_607_695_322_318
-#   end
-# end
+  test "part 1 works" do
+    assert D20.p1(@test_input) == 32_000_000
+    assert D20.p1(@test_input2) == 11_687_500
+    assert D20.p1(@input) == 747_304_011
+  end
 
-# ExUnit.run()
+  # test "part 2 works" do
+  #   assert D12.p2(@test_input) == 525_152
+  #   assert D12.p2(@input) == 11_607_695_322_318
+  # end
+end
+
+ExUnit.run()
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+.
+Finished in 0.02 seconds (0.02s async, 0.00s sync)
+1 test, 0 failures
+
+Randomized with seed 275568
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+%{total: 1, failures: 0, excluded: 0, skipped: 0}
 ```

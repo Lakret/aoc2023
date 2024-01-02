@@ -131,46 +131,43 @@ defmodule D20 do
       ) do
     state = State.count_pulse(state, signal_kind)
 
-    case kinds[dst] do
-      :broadcaster ->
-        pulses =
-          Enum.map(
-            conns[:broadcaster],
-            fn dst -> {:broadcaster, signal_kind, dst} end
-          )
+    {state, pulses} =
+      case kinds[dst] do
+        :broadcaster ->
+          pulses =
+            conns[:broadcaster]
+            |> Enum.map(fn dst -> {:broadcaster, signal_kind, dst} end)
 
-        press_button(input, state, rest ++ pulses)
+          {state, pulses}
 
-      :flip ->
-        case signal_kind do
-          :high ->
-            press_button(input, state, rest)
+        :flip ->
+          case signal_kind do
+            :high ->
+              {state, []}
 
-          :low ->
-            if State.on?(state, dst) do
-              state = State.flip_off(state, dst)
+            :low ->
+              if State.on?(state, dst) do
+                state = State.flip_off(state, dst)
+                pulses = Enum.map(conns[dst], fn next_dst -> {dst, :low, next_dst} end)
+                {state, pulses}
+              else
+                state = State.flip_on(state, dst)
+                pulses = Enum.map(conns[dst], fn next_dst -> {dst, :high, next_dst} end)
+                {state, pulses}
+              end
+          end
 
-              pulses = Enum.map(conns[dst], fn next_dst -> {dst, :low, next_dst} end)
-              press_button(input, state, rest ++ pulses)
-            else
-              state = State.flip_on(state, dst)
+        :conj ->
+          state = State.remember_conj_input(state, dst, src, signal_kind)
+          pulse_kind = if State.all_high?(state, dst), do: :low, else: :high
+          pulses = Enum.map(conns[dst], fn next_dst -> {dst, pulse_kind, next_dst} end)
+          {state, pulses}
 
-              pusles = Enum.map(conns[dst], fn next_dst -> {dst, :high, next_dst} end)
-              press_button(input, state, rest ++ pusles)
-            end
-        end
+        nil ->
+          {state, []}
+      end
 
-      :conj ->
-        state = State.remember_conj_input(state, dst, src, signal_kind)
-
-        new_pulse_kind = if State.all_high?(state, dst), do: :low, else: :high
-        pulses = Enum.map(conns[dst], fn next_dst -> {dst, new_pulse_kind, next_dst} end)
-
-        press_button(input, state, rest ++ pulses)
-
-      nil ->
-        press_button(input, state, rest)
-    end
+    press_button(input, state, rest ++ pulses)
   end
 
   def p1(input) do

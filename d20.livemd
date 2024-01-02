@@ -11,6 +11,63 @@ Mix.install([
 ## Solution
 
 ```elixir
+defmodule State do
+  defstruct [:low, :high, :on_flips, :conj_memory]
+
+  def new(input) do
+    conj_memory = init_conj_memory(input)
+
+    %__MODULE__{
+      low: 0,
+      high: 0,
+      on_flips: MapSet.new(),
+      conj_memory: conj_memory
+    }
+  end
+
+  def count_pulse(state, :low), do: %__MODULE__{state | low: state.low + 1}
+  def count_pulse(state, :high), do: %__MODULE__{state | high: state.high + 1}
+
+  def on?(state, module_name), do: MapSet.member?(state.on_flips, module_name)
+
+  def flip_on(state, module_name) do
+    %__MODULE__{state | on_flips: MapSet.put(state.on_flips, module_name)}
+  end
+
+  def flip_off(state, module_name) do
+    %__MODULE__{state | on_flips: MapSet.delete(state.on_flips, module_name)}
+  end
+
+  def remember_conj_input(state, conj_module, pulse_from, pulse_kind) do
+    conj_memory = put_in(state.conj_memory, [conj_module, pulse_from], pulse_kind)
+    %__MODULE__{state | conj_memory: conj_memory}
+  end
+
+  def all_high?(state, conj_module) do
+    state.conj_memory[conj_module]
+    |> Map.values()
+    |> Enum.all?(fn pulse_kind -> pulse_kind == :high end)
+  end
+
+  @doc false
+  def init_conj_memory(input) do
+    input.conj_inputs
+    |> Enum.map(fn {conj_module, inputs} ->
+      states = Enum.map(inputs, fn input -> {input, :low} end) |> Enum.into(%{})
+      {conj_module, states}
+    end)
+    |> Enum.into(%{})
+  end
+end
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+{:module, State, <<70, 79, 82, 49, 0, 0, 22, ...>>, {:init_conj_memory, 1}}
+```
+
+```elixir
 defmodule D20 do
   def parse_input(input) do
     {conns, kinds} =
@@ -61,44 +118,20 @@ defmodule D20 do
     %{conns: conns, kinds: kinds, conj_inputs: conj_inputs}
   end
 
-  def init_conj_memory(input) do
-    input.conj_inputs
-    |> Enum.map(fn {conj_module, inputs} ->
-      states = Enum.map(inputs, fn input -> {input, :low} end) |> Enum.into(%{})
-      {conj_module, states}
-    end)
-    |> Enum.into(%{})
-  end
-
   def press_button(input) do
-    conj_memory = init_conj_memory(input)
-    press_button(input, 0, 0, MapSet.new(), conj_memory, [{:button, :low, :broadcaster}])
+    press_button(input, State.new(input), [{:button, :low, :broadcaster}])
   end
 
-  # TODO: perhaps it makes sense to remember on-off and conj_memory to detect cycles
-  def press_button(_input, low, high, on_flips, conj_memory, []) do
-    {low, high, on_flips, conj_memory}
-  end
+  def press_button(_input, state, []), do: state
 
   def press_button(
         %{conns: conns, kinds: kinds} = input,
-        low,
-        high,
-        on_flips,
-        conj_memory,
+        %State{} = state,
         [{src, signal_kind, dst} | rest]
       ) do
-    # IO.puts("#{inspect(src)} -(#{inspect(signal_kind)})-> #{inspect(dst)}")
+    state = State.count_pulse(state, signal_kind)
 
-    {low, high} =
-      case signal_kind do
-        :low -> {low + 1, high}
-        :high -> {low, high + 1}
-      end
-
-    dst_kind = kinds[dst]
-    # TODO: can we extract the recursive call after the match?
-    case dst_kind do
+    case kinds[dst] do
       :broadcaster ->
         pulses =
           Enum.map(
@@ -106,58 +139,47 @@ defmodule D20 do
             fn dst -> {:broadcaster, signal_kind, dst} end
           )
 
-        press_button(input, low, high, on_flips, conj_memory, rest ++ pulses)
+        press_button(input, state, rest ++ pulses)
 
       :flip ->
         case signal_kind do
           :high ->
-            press_button(input, low, high, on_flips, conj_memory, rest)
+            press_button(input, state, rest)
 
           :low ->
-            if MapSet.member?(on_flips, dst) do
-              on_flips = MapSet.delete(on_flips, dst)
+            if State.on?(state, dst) do
+              state = State.flip_off(state, dst)
+
               pulses = Enum.map(conns[dst], fn next_dst -> {dst, :low, next_dst} end)
-              press_button(input, low, high, on_flips, conj_memory, rest ++ pulses)
+              press_button(input, state, rest ++ pulses)
             else
-              on_flips = MapSet.put(on_flips, dst)
+              state = State.flip_on(state, dst)
+
               pusles = Enum.map(conns[dst], fn next_dst -> {dst, :high, next_dst} end)
-              press_button(input, low, high, on_flips, conj_memory, rest ++ pusles)
+              press_button(input, state, rest ++ pusles)
             end
         end
 
       :conj ->
-        conj_memory = put_in(conj_memory, [dst, src], signal_kind)
-        remembered_pulses = conj_memory[dst] |> Map.values()
+        state = State.remember_conj_input(state, dst, src, signal_kind)
 
-        new_pulse_kind =
-          if Enum.all?(remembered_pulses, fn pulse -> pulse == :high end) do
-            :low
-          else
-            :high
-          end
-
+        new_pulse_kind = if State.all_high?(state, dst), do: :low, else: :high
         pulses = Enum.map(conns[dst], fn next_dst -> {dst, new_pulse_kind, next_dst} end)
-        press_button(input, low, high, on_flips, conj_memory, rest ++ pulses)
+
+        press_button(input, state, rest ++ pulses)
 
       nil ->
-        press_button(input, low, high, on_flips, conj_memory, rest)
+        press_button(input, state, rest)
     end
   end
 
-  # TODO: {low, high, on_flips, conj_memory} as State struct?
   def p1(input) do
-    conj_memory = init_conj_memory(input)
+    state =
+      Enum.reduce(1..1000, State.new(input), fn _, state ->
+        press_button(input, state, [{:button, :low, :broadcaster}])
+      end)
 
-    {low, high, _, _} =
-      Enum.reduce(
-        1..1000,
-        {0, 0, MapSet.new(), conj_memory},
-        fn _, {low, high, on_flips, conj_memory} ->
-          press_button(input, low, high, on_flips, conj_memory, [{:button, :low, :broadcaster}])
-        end
-      )
-
-    low * high
+    state.low * state.high
   end
 end
 ```
@@ -165,7 +187,7 @@ end
 <!-- livebook:{"output":true} -->
 
 ```
-{:module, D20, <<70, 79, 82, 49, 0, 0, 35, ...>>, {:p1, 1}}
+{:module, D20, <<70, 79, 82, 49, 0, 0, 30, ...>>, {:p1, 1}}
 ```
 
 ```elixir
@@ -484,7 +506,7 @@ Plan to solve part 2:
 <!-- livebook:{"output":true} -->
 
 ```
-747304011
+nil
 ```
 
 ## Tests
@@ -532,10 +554,10 @@ ExUnit.run()
 
 ```
 .
-Finished in 0.02 seconds (0.02s async, 0.00s sync)
+Finished in 0.03 seconds (0.03s async, 0.00s sync)
 1 test, 0 failures
 
-Randomized with seed 275568
+Randomized with seed 86317
 ```
 
 <!-- livebook:{"output":true} -->

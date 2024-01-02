@@ -2,33 +2,13 @@
 
 # Day 20
 
-## Solution
-
 ```elixir
-test_input =
-  """
-  broadcaster -> a, b, c
-  %a -> b
-  %b -> c
-  %c -> inv
-  &inv -> a
-  """
-
-test_input2 =
-  """
-  broadcaster -> a
-  %a -> inv, con
-  &inv -> b
-  %b -> con
-  &con -> output
-  """
+Mix.install([
+  {:kino, "~> 0.12.0"}
+])
 ```
 
-<!-- livebook:{"output":true} -->
-
-```
-"broadcaster -> a\n%a -> inv, con\n&inv -> b\n%b -> con\n&con -> output\n"
-```
+## Solution
 
 ```elixir
 defmodule D20 do
@@ -189,53 +169,322 @@ end
 ```
 
 ```elixir
-test_input = D20.parse_input(test_input)
+input = Path.join(__DIR__, "inputs/d20") |> File.read!() |> D20.parse_input()
 ```
 
 <!-- livebook:{"output":true} -->
 
 ```
 %{
-  kinds: %{:broadcaster => :broadcaster, "a" => :flip, "b" => :flip, "c" => :flip, "inv" => :conj},
-  conj_inputs: %{"inv" => MapSet.new(["c"])},
+  kinds: %{
+    "bm" => :conj,
+    "qb" => :flip,
+    "lh" => :flip,
+    "xz" => :flip,
+    "dx" => :flip,
+    "lm" => :flip,
+    "kn" => :flip,
+    "cj" => :flip,
+    "fj" => :flip,
+    "ng" => :flip,
+    "ds" => :conj,
+    "qm" => :flip,
+    "ft" => :flip,
+    "df" => :flip,
+    "zf" => :flip,
+    "gz" => :flip,
+    "bs" => :flip,
+    "fp" => :flip,
+    "cs" => :conj,
+    "vr" => :conj,
+    "ll" => :flip,
+    "bx" => :flip,
+    "pz" => :flip,
+    "bv" => :flip,
+    "qr" => :flip,
+    "dc" => :flip,
+    "sb" => :flip,
+    "pg" => :flip,
+    "jc" => :flip,
+    "rv" => :flip,
+    "mg" => :flip,
+    "dt" => :conj,
+    "dr" => :conj,
+    "fg" => :flip,
+    "zb" => :flip,
+    "qs" => :flip,
+    "tn" => :conj,
+    "db" => :flip,
+    "sx" => :flip,
+    "nx" => :flip,
+    "mp" => :flip,
+    "vx" => :flip,
+    "ls" => :flip,
+    "dz" => :flip,
+    "kd" => :flip,
+    "tr" => :flip,
+    "bk" => :flip,
+    "rs" => :flip,
+    "bj" => :flip,
+    ...
+  },
   conns: %{
-    :broadcaster => ["a", "b", "c"],
-    "a" => ["b"],
-    "b" => ["c"],
-    "c" => ["inv"],
-    "inv" => ["a"]
+    "bm" => ["vr"],
+    "qb" => ["qm"],
+    "lh" => ["cs", "kd"],
+    "xz" => ["sx", "ds"],
+    "dx" => ["bv", "dt"],
+    "lm" => ["ds"],
+    "kn" => ["jc", "cs"],
+    "cj" => ["pg"],
+    "fj" => ["dt", "tr"],
+    "ng" => ["ft", "ds"],
+    "ds" => ["qg", "db", "bm", "ft", "jk", "qs", "dz"],
+    "qm" => ["dt", "ll"],
+    "ft" => ["dz"],
+    "df" => ["rs"],
+    "zf" => ["lh", "cs"],
+    "gz" => ["dt", "dx"],
+    "bs" => ["dt"],
+    "fp" => ["bk", "cs"],
+    "cs" => ["lp", "jg", "sb", "jc", "dr"],
+    "vr" => ["rx"],
+    "ll" => ["zb", "dt"],
+    "bx" => ["qb"],
+    "pz" => ["rv"],
+    "bv" => ["bs", "dt"],
+    "qr" => ["pz"],
+    "dc" => ["bd", "nx"],
+    "sb" => ["lp", "cs"],
+    "pg" => ["df", "bd"],
+    "jc" => ["zf"],
+    "rv" => ["bd", "mp"],
+    "mg" => ["fj", "dt"],
+    "dt" => ["bx", "mg", "qb", "cl", "zb"],
+    "dr" => ["vr"],
+    "fg" => ["ds", "xz"],
+    "zb" => ["gz"],
+    "qs" => ["db"],
+    "tn" => ["vr"],
+    "db" => ["qg"],
+    "sx" => ["ds", "lm"],
+    "nx" => ["qr"],
+    "mp" => ["cj", "bd"],
+    "vx" => ["bd"],
+    "ls" => ["ds", "ng"],
+    "dz" => ["fg"],
+    "kd" => ["cs", "jg"],
+    "tr" => ["bx", "dt"],
+    "bk" => ["cs"],
+    "rs" => [...],
+    ...
+  },
+  conj_inputs: %{
+    "bd" => MapSet.new(["dc", "gq", "mp", "pg", "rs", "rv", "vx"]),
+    "bm" => MapSet.new(["ds"]),
+    "cl" => MapSet.new(["dt"]),
+    "cs" => MapSet.new(["bj", "bk", "fp", "kd", "kn", "lh", "sb", "sh", "zf"]),
+    "dr" => MapSet.new(["cs"]),
+    "ds" => MapSet.new(["fg", "jk", "lm", "ls", "ng", "sx", "xz"]),
+    "dt" => MapSet.new(["bs", "bv", "dx", "fj", "gz", "ll", "mg", "qm", "tr"]),
+    "tn" => MapSet.new(["bd"]),
+    "vr" => MapSet.new(["bm", "cl", "dr", "tn"])
   }
 }
 ```
 
+Let's look at our graph to figure out how to solve this.
+
 ```elixir
-test_input2 = D20.parse_input(test_input2)
+input.conns
+|> Enum.filter(fn {_src, dst} -> "rx" in dst end)
 ```
 
 <!-- livebook:{"output":true} -->
 
 ```
-%{
-  kinds: %{:broadcaster => :broadcaster, "a" => :flip, "b" => :flip, "con" => :conj, "inv" => :conj},
-  conj_inputs: %{"con" => MapSet.new(["a", "b"]), "inv" => MapSet.new(["a"])},
-  conns: %{
-    :broadcaster => ["a"],
-    "a" => ["inv", "con"],
-    "b" => ["con"],
-    "con" => ["output"],
-    "inv" => ["b"]
-  }
-}
+[{"vr", ["rx"]}]
 ```
 
 ```elixir
-D20.p1(test_input)
+input.conns
+|> Enum.filter(fn {_src, dst} -> "vr" in dst end)
 ```
 
 <!-- livebook:{"output":true} -->
 
 ```
-32000000
+[{"cl", ["vr"]}, {"tn", ["vr"]}, {"dr", ["vr"]}, {"bm", ["vr"]}]
+```
+
+```elixir
+input.kinds["vr"]
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+:conj
+```
+
+This means that we need to make `vr` send a `:low` pulse to `rx`. Since `vr` is a conjunction module, we need to find a state where each of its inputs is set to `:high`.
+
+If there's some kind of a cyclical behaviour as in the test example #2 we will probably need to do least common multiple trick again to find the number of button presses.
+
+```elixir
+conns_graph =
+  input.conns
+  |> Enum.flat_map(fn {src, dst} ->
+    Enum.map(dst, fn dst -> "  #{src}-->#{dst}" end)
+  end)
+  |> Enum.join("\n")
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+"  qg-->ls\n  gq-->bd\n  gq-->vx\n  sh-->kn\n  sh-->cs\n  cl-->vr\n  broadcaster-->sb\n  broadcaster-->dc\n  broadcaster-->jk\n  broadcaster-->mg\n  jk-->ds\n  jk-->qs\n  lp-->sh\n  bd-->nx\n  bd-->pz\n  bd-->dc\n  bd-->qr\n  bd-->cj\n  bd-->df\n  bd-->tn\n  jg-->bj\n  bj-->cs\n  bj-->fp\n  rs-->gq\n  rs-->bd\n  bk-->cs\n  tr-->bx\n  tr-->dt\n  kd-->cs\n  kd-->jg\n  dz-->fg\n  ls-->ds\n  ls-->ng\n  vx-->bd\n  mp-->cj\n  mp-->bd\n  nx-->qr\n  sx-->ds\n  sx-->lm\n  db-->qg\n  tn-->vr\n  qs-->db\n  zb-->gz\n  fg-->ds\n  fg-->xz\n  dr-->vr\n  dt-->bx\n  dt-->mg\n  dt-->qb\n  dt-->cl\n  dt-->zb\n  mg-->fj\n  mg-->dt\n  rv-->bd\n  rv-->mp\n  jc-->zf\n  pg-->df\n  pg-->bd\n  sb-->lp\n  sb-->cs\n  dc-->bd\n  dc-->nx\n  qr-->pz\n  bv-->bs\n  bv-->dt\n  pz-->rv\n  bx-->qb\n  ll-->zb\n  ll-->dt\n  vr-->rx\n  cs-->lp\n  cs-->jg\n  cs-->sb\n  cs-->jc\n  cs-->dr\n  fp-->bk\n  fp-->cs\n  bs-->dt\n  gz-->dt\n  gz-->dx\n  zf-->lh\n  zf-->cs\n  df-->rs\n  ft-->dz\n  qm-->dt\n  qm-->ll\n  ds-->qg\n  ds-->db\n  ds-->bm\n  ds-->ft\n  ds-->jk\n  ds-->qs\n  ds-->dz\n  ng-->ft\n  ng-->ds\n  fj-->dt\n  fj-->tr\n  cj-->pg\n  kn-->jc\n  kn-->cs\n  lm-->ds\n  dx-->bv\n  dx-->dt\n  xz-->sx\n  xz-->ds\n  lh-->cs\n  lh-->kd\n  qb-->qm\n  bm-->vr"
+```
+
+```elixir
+Kino.Mermaid.new("""
+graph TD;
+#{conns_graph}
+""")
+```
+
+<!-- livebook:{"output":true} -->
+
+```mermaid
+graph TD;
+  qg-->ls
+  gq-->bd
+  gq-->vx
+  sh-->kn
+  sh-->cs
+  cl-->vr
+  broadcaster-->sb
+  broadcaster-->dc
+  broadcaster-->jk
+  broadcaster-->mg
+  jk-->ds
+  jk-->qs
+  lp-->sh
+  bd-->nx
+  bd-->pz
+  bd-->dc
+  bd-->qr
+  bd-->cj
+  bd-->df
+  bd-->tn
+  jg-->bj
+  bj-->cs
+  bj-->fp
+  rs-->gq
+  rs-->bd
+  bk-->cs
+  tr-->bx
+  tr-->dt
+  kd-->cs
+  kd-->jg
+  dz-->fg
+  ls-->ds
+  ls-->ng
+  vx-->bd
+  mp-->cj
+  mp-->bd
+  nx-->qr
+  sx-->ds
+  sx-->lm
+  db-->qg
+  tn-->vr
+  qs-->db
+  zb-->gz
+  fg-->ds
+  fg-->xz
+  dr-->vr
+  dt-->bx
+  dt-->mg
+  dt-->qb
+  dt-->cl
+  dt-->zb
+  mg-->fj
+  mg-->dt
+  rv-->bd
+  rv-->mp
+  jc-->zf
+  pg-->df
+  pg-->bd
+  sb-->lp
+  sb-->cs
+  dc-->bd
+  dc-->nx
+  qr-->pz
+  bv-->bs
+  bv-->dt
+  pz-->rv
+  bx-->qb
+  ll-->zb
+  ll-->dt
+  vr-->rx
+  cs-->lp
+  cs-->jg
+  cs-->sb
+  cs-->jc
+  cs-->dr
+  fp-->bk
+  fp-->cs
+  bs-->dt
+  gz-->dt
+  gz-->dx
+  zf-->lh
+  zf-->cs
+  df-->rs
+  ft-->dz
+  qm-->dt
+  qm-->ll
+  ds-->qg
+  ds-->db
+  ds-->bm
+  ds-->ft
+  ds-->jk
+  ds-->qs
+  ds-->dz
+  ng-->ft
+  ng-->ds
+  fj-->dt
+  fj-->tr
+  cj-->pg
+  kn-->jc
+  kn-->cs
+  lm-->ds
+  dx-->bv
+  dx-->dt
+  xz-->sx
+  xz-->ds
+  lh-->cs
+  lh-->kd
+  qb-->qm
+  bm-->vr
+
+```
+
+It seems that each of the inputs of `vr` has their own independent connected component in the graph and only one input!
+
+Plan to solve part 2:
+
+* figure out length of cycles for each of the `bm`, `dr`, `tn`, and `cl`
+* see if they are primes
+* find their LCM
+
+```elixir
+# D20.p1(input)
+```
+
+<!-- livebook:{"output":true} -->
+
+```
+747304011
 ```
 
 ## Tests
